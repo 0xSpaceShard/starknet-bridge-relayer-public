@@ -1,8 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService, OnModuleInit } from '@nestjs/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+
+import { ConfigService } from 'common/config';
+import { PrometheusService } from 'common/prometheus';
+import { APP_NAME, APP_VERSION } from './app.constants';
 
 @Injectable()
-export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+export class AppService implements OnModuleInit {
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) protected readonly logger: LoggerService,
+    protected readonly configService: ConfigService,
+    protected readonly prometheusService: PrometheusService,
+  ) {}
+
+  public async onModuleInit(): Promise<void> {
+    const env = this.configService.get('NODE_ENV');
+    const version = APP_VERSION;
+    const name = APP_NAME;
+
+    this.prometheusService.buildInfo.labels({ env, name, version }).inc();
+    this.logger.log('Init app', { env, name, version });
   }
 }
