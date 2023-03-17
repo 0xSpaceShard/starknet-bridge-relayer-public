@@ -8,6 +8,9 @@ yarn
 ```
 
 ### Start development
+#### Setup env
+Duplicate the `example.env` file and rename it to `.env`
+
 ```sh
 yarn start:dev
 ```
