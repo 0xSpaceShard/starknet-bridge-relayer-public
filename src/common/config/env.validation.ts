@@ -17,7 +17,7 @@ export class EnvironmentVariables {
   @IsNumber()
   @Min(1)
   @Transform(toNumber({ defaultValue: 3000 }))
-  PORT: number;
+  RELAYER_PORT: number;
 
   @IsOptional()
   @IsEnum(LogLevel)

@@ -1,3 +1,5 @@
+include .env
+
 dev-up: dev-down
 	docker compose -f docker-compose-dev.yaml up
 

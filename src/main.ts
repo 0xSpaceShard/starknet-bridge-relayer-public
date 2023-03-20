@@ -13,7 +13,7 @@ async function bootstrap() {
 
   // config
   const configService: ConfigService = app.get(ConfigService);
-  const appPort = configService.get('PORT');
+  const appPort = configService.get('RELAYER_PORT');
 
   app.enableVersioning({ type: VersioningType.URI });
 

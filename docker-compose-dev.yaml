@@ -30,9 +30,9 @@ services:
     build: ./
     restart: always
     environment:
-      - PORT=${PORT}
+      - RELAYER_PORT=${RELAYER_PORT}
     ports:
-      - '${PORT}:${PORT}'
+      - '${RELAYER_PORT}:${RELAYER_PORT}'
     depends_on:
       - mongo
       - indexer
