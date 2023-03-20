@@ -27,12 +27,18 @@ services:
   
   relayer:
     container_name: main
-    build: ./
+    build:
+      context: .
+      target: development
     restart: always
     environment:
       - RELAYER_PORT=${RELAYER_PORT}
     ports:
       - '${RELAYER_PORT}:${RELAYER_PORT}'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:debug
     depends_on:
       - mongo
       - indexer

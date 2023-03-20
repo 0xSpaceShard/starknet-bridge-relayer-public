@@ -1,13 +1,20 @@
-FROM node:18-alpine as building
+FROM node:18-alpine as development
 
 WORKDIR /app
 
 COPY package.json yarn.lock ./
-COPY ./tsconfig*.json ./
-COPY ./src ./src
 
 RUN yarn install --frozen-lockfile --non-interactive && yarn cache clean
-RUN yarn build
+
+COPY ./tsconfig*.json ./
+
+COPY . .
+
+RUN yarn run build
+
+################
+## PRODUCTION ##
+################
 
 FROM node:18-alpine
 
