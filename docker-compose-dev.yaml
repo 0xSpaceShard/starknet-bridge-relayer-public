@@ -1,0 +1,53 @@
+version: '3.7'
+
+services:
+  mongo:
+    image: mongo:latest
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo-data:/data/db
+  
+  indexer:
+    image: shardastronaut/stargate-bridge-indexer:latest
+    restart: always
+    environment:
+      SERVER_URL: ${SERVER_URL}
+      MONGO_URL: ${MONGO_URL}
+      ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
+      DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
+      GRAPHQL_URL: ${GRAPHQL_URL}
+      GRAPHQL_PORT: ${GRAPHQL_PORT}
+      BUILD_ENV: ${BUILD_ENV}
+    ports:
+      - 8080:8080
+    depends_on:
+      - mongo
+  
+  relayer:
+    container_name: main
+    build:
+      context: .
+      target: development
+    restart: always
+    environment:
+      - RELAYER_PORT=${RELAYER_PORT}
+    ports:
+      - '${RELAYER_PORT}:${RELAYER_PORT}'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:debug
+    depends_on:
+      - mongo
+      - indexer
+
+  starknet-devnet:
+    image: shardlabs/starknet-devnet:latest
+    restart: always
+    network_mode: host
+    entrypoint: [starknet-devnet, --port, "5050"]
+
+volumes:
+  mongo-data:
