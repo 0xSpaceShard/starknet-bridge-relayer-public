@@ -15,6 +15,9 @@ import {
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
+import { Logger } from '@nestjs/common';
+import { createMock } from '@golevelup/ts-jest';
+import { WINSTON_MODULE_NEST_PROVIDER, WINSTON_MODULE_PROVIDER } from 'nest-winston';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
@@ -36,6 +39,14 @@ describe.only('RelayerService', () => {
         {
           provide: IndexerService,
           useValue: IndexerServiceMock,
+        },
+        {
+          provide: 'NestWinston',
+          useValue: {
+            log: jest.fn((message: string, params: []) => {
+              console.log(message, ...params);
+            }),
+          },
         },
       ],
     }).compile();
@@ -127,10 +138,10 @@ describe.only('RelayerService', () => {
   });
 
   it('Success processWithdrawals', async () => {
-    const res = await service.processWithdrawals(fromBlockNumberMock, toBlockNumberMock)
-    expect(res.currentFromBlockNumber).toEqual(toBlockNumberMock)
+    const res = await service.processWithdrawals(fromBlockNumberMock, toBlockNumberMock);
+    expect(res.currentFromBlockNumber).toEqual(toBlockNumberMock);
     // Check the file `IndexerServiceMock->getWithdraws->TestCase-5` inside __mocks__
-    expect(res.totalWithdrawals).toEqual(10)
-    expect(res.totalWithdrawalsProcessed).toEqual(4)
+    expect(res.totalWithdrawals).toEqual(10);
+    expect(res.totalWithdrawalsProcessed).toEqual(4);
   });
 });

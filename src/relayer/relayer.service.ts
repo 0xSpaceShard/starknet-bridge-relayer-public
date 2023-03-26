@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { ConfigService } from 'common/config';
 import { Web3Service } from 'web3/web3.service';
 import {
@@ -14,10 +14,13 @@ import { uint256 } from 'starknet';
 import { Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
 import { callWithRetry, sleep } from './relayer.utils';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class RelayerService {
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
     private configService: ConfigService,
     private web3Service: Web3Service,
     private mongoService: MongoService,
@@ -33,10 +36,13 @@ export class RelayerService {
         const { status, lastProcessedBlockNumber, stateBlockNumber } = await this.canProcessWithdrawals();
         if (status) {
           const res = this.processWithdrawals(lastProcessedBlockNumber, stateBlockNumber);
+          this.logger.log('Success process withdrawals:', res);
         }
       } catch (error: any) {
         sleep(sleepAfterFailExec);
+        this.logger.error('Error run:', error);
       }
+      this.logger.log(`Relayer sleep: ${sleepAfterSuccessExec} MS`);
       sleep(sleepAfterSuccessExec);
     }
   }
@@ -103,19 +109,15 @@ export class RelayerService {
   }
 
   async getLastProcessedBlock(): Promise<number> {
-    return await callWithRetry(
-      3,
-      async () => {
-        let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
-        if (!lastProcessedBlockNumber) {
-          const startBlock = this.configService.get('START_BLOCK');
-          await this.updateProcessedBlock(startBlock);
-          lastProcessedBlockNumber = startBlock;
-        }
-        return lastProcessedBlockNumber;
-      },
-      'Error getLastProcessedBlock',
-    );
+    return await this.callWithRetry('mongoService.getLastProcessedBlock', async () => {
+      let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
+      if (!lastProcessedBlockNumber) {
+        const startBlock = this.configService.get('START_BLOCK');
+        await this.updateProcessedBlock(startBlock);
+        lastProcessedBlockNumber = startBlock;
+      }
+      return lastProcessedBlockNumber;
+    });
   }
 
   async getRequestWithdrawalAtBlocks(fromBlock: number, toBlock: number): Promise<RequestWithdrawalAtBlocks> {
@@ -130,13 +132,9 @@ export class RelayerService {
 
     while (true) {
       const skip = limit * index;
-      const withdrawals: Array<Withdrawal> = await callWithRetry(
-        3,
-        async () => {
-          return await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
-        },
-        'Error indexerService.getWithdraws',
-      );
+      const withdrawals: Array<Withdrawal> = await this.callWithRetry('indexerService.getWithdraws', async () => {
+        return await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
+      });
 
       if (withdrawals.length === 0) {
         break;
@@ -186,23 +184,15 @@ export class RelayerService {
   }
 
   async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
-    await callWithRetry(
-      3,
-      async () => {
-        await this.web3Service.callWithdrawMulticall(multicallRequest);
-      },
-      'Error consumeMessagesOnL1',
-    );
+    await this.callWithRetry('web3Service.callWithdrawMulticall', async () => {
+      await this.web3Service.callWithdrawMulticall(multicallRequest);
+    });
   }
 
   async updateProcessedBlock(toBlock: number) {
-    return await callWithRetry(
-      3,
-      async () => {
-        return await this.mongoService.updateProcessedBlock(toBlock);
-      },
-      'Error consumeMessagesOnL1',
-    );
+    return await this.callWithRetry('mongoService.updateProcessedBlock', async () => {
+      return await this.mongoService.updateProcessedBlock(toBlock);
+    });
   }
 
   async filterWhichMessagesCanBeConsumeOnL1MulticallView(
@@ -229,5 +219,9 @@ export class RelayerService {
       lastProcessedBlockNumber,
       stateBlockNumber,
     };
+  }
+
+  async callWithRetry(functionId: string, callback: Function) {
+    return await callWithRetry(this.logger, 3, callback, functionId);
   }
 }
