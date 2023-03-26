@@ -79,6 +79,9 @@ export class EnvironmentVariables {
 
   @IsString()
   INDEXER_URL: string;
+
+  @IsString()
+  RELAYER_L2_ADDRESS: string;
 }
 
 export function validate(config: Record<string, unknown>) {

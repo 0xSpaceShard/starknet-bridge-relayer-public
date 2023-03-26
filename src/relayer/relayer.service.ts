@@ -11,7 +11,7 @@ import { TRANSFER_FROM_STARKNET, ZeroBytes, l2BridgeAddressToL1 } from './relaye
 import { MongoService } from 'storage/mongo/mongo.service';
 import { ethers } from 'ethers';
 import { uint256 } from 'starknet';
-import { Withdrawal } from 'indexer/entities';
+import { Transfer, Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
 import { callWithRetry, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -153,7 +153,7 @@ export class RelayerService {
     for (let i = 0; i < withdrawals.length; i++) {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
-      if (l1BridgeAddress) {
+      if (l1BridgeAddress && this.checkIfUserPaiedTheRelayer(withdrawal.transfers)) {
         multicallRequests.push({
           target: l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -219,6 +219,19 @@ export class RelayerService {
       lastProcessedBlockNumber,
       stateBlockNumber,
     };
+  }
+
+  checkIfUserPaiedTheRelayer(transfers: Transfer[]): boolean {
+    let paied: boolean = false;
+    const relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
+    for (let i = 0; i < transfers.length; i++) {
+      const transfer = transfers[i];
+      if (transfer.to == relayerAddress) {
+        paied = true;
+        break;
+      }
+    }
+    return paied;
   }
 
   async callWithRetry(functionId: string, callback: Function) {

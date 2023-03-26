@@ -144,4 +144,24 @@ describe.only('RelayerService', () => {
     expect(res.totalWithdrawals).toEqual(10);
     expect(res.totalWithdrawalsProcessed).toEqual(4);
   });
+
+  it('Success checkIfUserPaiedTheRelayer', () => {
+    let isValid = service.checkIfUserPaiedTheRelayer([
+      {
+        from_: '0x',
+        to: '0x0000000000000000000000000000000000000000000000000000000000000001',
+        value: '100',
+      },
+    ]);
+    expect(isValid).toEqual(true);
+
+    isValid = service.checkIfUserPaiedTheRelayer([
+      {
+        from_: '0x',
+        to: '0x0000000000000000000000000000000000000000000000000000000000000020',
+        value: '100',
+      },
+    ]);
+    expect(isValid).toEqual(false);
+  });
 });
