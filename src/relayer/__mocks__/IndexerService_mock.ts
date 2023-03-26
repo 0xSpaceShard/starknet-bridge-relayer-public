@@ -18,5 +18,11 @@ export const IndexerServiceMock = {
     .mockReturnValueOnce([])
     // TestCase 4
     .mockReturnValueOnce(withdrawalsResponseMock)
+    .mockReturnValueOnce([])
+    // TestCase 5: Success processWithdrawals
+    // this test will loop 2 times
+    .mockReturnValueOnce(withdrawalsResponseMock)
+    .mockReturnValueOnce([])
+    .mockReturnValueOnce(withdrawalsResponseMock)
     .mockReturnValueOnce([]),
 };

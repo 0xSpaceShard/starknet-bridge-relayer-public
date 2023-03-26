@@ -1,11 +1,11 @@
-import { BigNumber, ethers } from 'ethers';
-import { canConsumeMessageOnL1MulticallViewResponse, fromBlockNumberMock } from './data';
+import { BigNumber } from 'ethers';
+import { canConsumeMessageOnL1MulticallViewResponse, fromBlockNumberMock, toBlockNumberMock } from './data';
 import { Web3Service } from 'web3/web3.service';
 import { ConfigService } from 'common/config';
 
 export const Web3ServiceMock = {
   getStateBlockNumber: jest.fn(() => {
-    return BigNumber.from(fromBlockNumberMock.toString());
+    return BigNumber.from(toBlockNumberMock.toString());
   }),
   canConsumeMessageOnL1MulticallView: jest.fn(() => {
     return canConsumeMessageOnL1MulticallViewResponse;

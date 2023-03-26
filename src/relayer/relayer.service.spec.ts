@@ -25,7 +25,6 @@ describe.only('RelayerService', () => {
       providers: [
         RelayerService,
         ConfigService,
-        Web3Service,
         {
           provide: MongoService,
           useValue: MongoServiceMock,
@@ -124,11 +123,14 @@ describe.only('RelayerService', () => {
       allMulticallRequests,
     );
 
-    const res = await service.consumeMessagesOnL1(toBlockNumberMock, allMulticallRequestsForMessagesCanBeConsumedOnL1);
-    expect(res.acknowledged).toEqual(true);
+    await service.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1);
   });
 
   it('Success processWithdrawals', async () => {
-    await service.processWithdrawals()
+    const res = await service.processWithdrawals(fromBlockNumberMock, toBlockNumberMock)
+    expect(res.currentFromBlockNumber).toEqual(toBlockNumberMock)
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-5` inside __mocks__
+    expect(res.totalWithdrawals).toEqual(10)
+    expect(res.totalWithdrawalsProcessed).toEqual(4)
   });
 });
