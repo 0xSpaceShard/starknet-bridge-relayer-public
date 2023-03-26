@@ -18,3 +18,17 @@ export interface BridgeMetadata {
   l2TokenAddress: string;
   l1BridgeAddress: string;
 }
+
+export interface ProcessWithdrawalsResults {
+  currentFromBlockNumber: number;
+  currentToBlockNumber: number;
+  stateBlockNumber: number;
+  totalWithdrawalsProcessed: number;
+  totalWithdrawals: number;
+}
+
+export interface CheckCanProcessWithdrawalsResults {
+  status: boolean;
+  lastProcessedBlockNumber: number;
+  stateBlockNumber: number;
+}

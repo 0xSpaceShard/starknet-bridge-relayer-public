@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from 'common/config';
 import { Web3Service } from 'web3/web3.service';
-import { RequestWithdrawalAtBlocks } from './relayer.interface';
+import {
+  CheckCanProcessWithdrawalsResults,
+  ProcessWithdrawalsResults,
+  RequestWithdrawalAtBlocks,
+} from './relayer.interface';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import { TRANSFER_FROM_STARKNET, ZeroBytes, l2BridgeAddressToL1 } from './relayer.constants';
 import { MongoService } from 'storage/mongo/mongo.service';
@@ -9,6 +13,7 @@ import { ethers } from 'ethers';
 import { uint256 } from 'starknet';
 import { Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
+import { callWithRetry, sleep } from './relayer.utils';
 
 @Injectable()
 export class RelayerService {
@@ -20,62 +25,97 @@ export class RelayerService {
   ) {}
 
   async run() {
+    const sleepAfterSuccessExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_SUCCESS_EXEC'));
+    const sleepAfterFailExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_FAIL_EXEC'));
+
     while (true) {
       try {
-        this.processWithdrawals();
-      } catch (error) {}
+        const { status, lastProcessedBlockNumber, stateBlockNumber } = await this.canProcessWithdrawals();
+        if (status) {
+          const res = this.processWithdrawals(lastProcessedBlockNumber, stateBlockNumber);
+        }
+      } catch (error: any) {
+        sleep(sleepAfterFailExec);
+      }
+      sleep(sleepAfterSuccessExec);
     }
   }
 
-  async processWithdrawals() {
-    let fromBlockNumber = await this.getLastProcessedBlock();
-    const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
+  async processWithdrawals(lastProcessedBlock: number, stateBlockNumber: number): Promise<ProcessWithdrawalsResults> {
+    const chunk = Number(this.configService.get('NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK'));
 
-    if (stateBlockNumber <= fromBlockNumber) {
-      return;
-    }
-
-    const chunk = 100;
-    let currentFromBlockNumber = fromBlockNumber;
+    let currentFromBlockNumber = lastProcessedBlock;
     let currentToBlockNumber = currentFromBlockNumber + chunk;
 
-    while (currentFromBlockNumber < stateBlockNumber) {
-      if (currentToBlockNumber > stateBlockNumber) {
-        currentToBlockNumber = stateBlockNumber;
-      }
+    let totalWithdrawalsProcessed = 0;
+    let totalWithdrawals = 0;
 
+    // Start processed withdrawals between 2 blocks.
+    while (currentToBlockNumber <= stateBlockNumber) {
+      // Get Withdrawals from the indexer
       const requestWithdrawalAtBlocks = await this.getRequestWithdrawalAtBlocks(
         currentFromBlockNumber,
         currentToBlockNumber,
       );
 
+      // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
       const allMulticallRequests: Array<MulticallRequest> = this.getMulticallRequests(
         requestWithdrawalAtBlocks.withdrawals,
       );
 
-      const viewMulticallResponse: MulticallResponse = await this.web3Service.canConsumeMessageOnL1MulticallView(
+      // Check which message hashs exists on L1.
+      const viewMulticallResponse: MulticallResponse = await this.filterWhichMessagesCanBeConsumeOnL1MulticallView(
         allMulticallRequests,
       );
 
+      // Filter the valid messages that can be consumed on L1.
       const allMulticallRequestsForMessagesCanBeConsumedOnL1 = this.getListOfValidMessagesToConsumedOnL1(
         viewMulticallResponse,
         allMulticallRequests,
       );
 
-      this.consumeMessagesOnL1(currentToBlockNumber, allMulticallRequestsForMessagesCanBeConsumedOnL1);
+      // Consume the messages.
+      await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1);
 
-      currentFromBlockNumber = currentToBlockNumber;
+      // Store the last processed block on database.
+      await this.updateProcessedBlock(currentToBlockNumber);
+
+      // Update the block numbers.
+      if (currentToBlockNumber + chunk > stateBlockNumber && currentToBlockNumber != stateBlockNumber) {
+        currentToBlockNumber = stateBlockNumber;
+      } else {
+        currentToBlockNumber += chunk;
+      }
+      currentFromBlockNumber += chunk;
+
+      // Update stats.
+      totalWithdrawalsProcessed += allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
+      totalWithdrawals += allMulticallRequests.length;
     }
+
+    return {
+      currentFromBlockNumber,
+      currentToBlockNumber,
+      stateBlockNumber,
+      totalWithdrawalsProcessed,
+      totalWithdrawals,
+    };
   }
 
   async getLastProcessedBlock(): Promise<number> {
-    let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
-    if (!lastProcessedBlockNumber) {
-      const startBlock = this.configService.get('START_BLOCK');
-      await this.mongoService.updateProcessedBlock(startBlock);
-      lastProcessedBlockNumber = startBlock;
-    }
-    return lastProcessedBlockNumber;
+    return await callWithRetry(
+      3,
+      async () => {
+        let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
+        if (!lastProcessedBlockNumber) {
+          const startBlock = this.configService.get('START_BLOCK');
+          await this.updateProcessedBlock(startBlock);
+          lastProcessedBlockNumber = startBlock;
+        }
+        return lastProcessedBlockNumber;
+      },
+      'Error getLastProcessedBlock',
+    );
   }
 
   async getRequestWithdrawalAtBlocks(fromBlock: number, toBlock: number): Promise<RequestWithdrawalAtBlocks> {
@@ -90,11 +130,18 @@ export class RelayerService {
 
     while (true) {
       const skip = limit * index;
-      // TODO: implement retry
-      const withdrawals: Array<Withdrawal> = await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
+      const withdrawals: Array<Withdrawal> = await callWithRetry(
+        3,
+        async () => {
+          return await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
+        },
+        'Error indexerService.getWithdraws',
+      );
+
       if (withdrawals.length === 0) {
         break;
       }
+
       listRequestWithdrawalsAtBlocks.withdrawals.push(...withdrawals);
       index++;
     }
@@ -138,9 +185,30 @@ export class RelayerService {
     return multicallRequests;
   }
 
-  async consumeMessagesOnL1(toBlock: number, multicallRequest: Array<MulticallRequest>) {
-    await this.web3Service.callWithdrawMulticall(multicallRequest);
-    return await this.mongoService.updateProcessedBlock(toBlock);
+  async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
+    await callWithRetry(
+      3,
+      async () => {
+        await this.web3Service.callWithdrawMulticall(multicallRequest);
+      },
+      'Error consumeMessagesOnL1',
+    );
+  }
+
+  async updateProcessedBlock(toBlock: number) {
+    return await callWithRetry(
+      3,
+      async () => {
+        return await this.mongoService.updateProcessedBlock(toBlock);
+      },
+      'Error consumeMessagesOnL1',
+    );
+  }
+
+  async filterWhichMessagesCanBeConsumeOnL1MulticallView(
+    allMulticallRequests: Array<MulticallRequest>,
+  ): Promise<MulticallResponse> {
+    return await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
   }
 
   getMessageHash(l2BridgeAddress: string, l1BridgeAddress: string, receiverL1: string, amount: string): string {
@@ -150,5 +218,16 @@ export class RelayerService {
       ['uint256', 'address', 'uint256', 'uint256[]'],
       [l2BridgeAddress, l1BridgeAddress, payload.length, payload],
     );
+  }
+
+  async canProcessWithdrawals(): Promise<CheckCanProcessWithdrawalsResults> {
+    let lastProcessedBlockNumber = await this.getLastProcessedBlock();
+    const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
+
+    return {
+      status: stateBlockNumber <= lastProcessedBlockNumber,
+      lastProcessedBlockNumber,
+      stateBlockNumber,
+    };
   }
 }
