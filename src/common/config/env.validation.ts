@@ -52,6 +52,9 @@ export class EnvironmentVariables {
 
   @IsString()
   INFURA_API_KEY: string;
+
+  @IsString()
+  MONGO_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {
