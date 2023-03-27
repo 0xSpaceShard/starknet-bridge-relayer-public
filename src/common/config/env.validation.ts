@@ -58,9 +58,30 @@ export class EnvironmentVariables {
 
   @IsNumberString()
   START_BLOCK: number;
+  
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(toNumber({ defaultValue: 100 }))
+  NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(toNumber({ defaultValue: 100 }))
+  RELAYER_SLEEP_AFTER_SUCCESS_EXEC: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(toNumber({ defaultValue: 100 }))
+  RELAYER_SLEEP_AFTER_FAIL_EXEC: number;
 
   @IsString()
   INDEXER_URL: string;
+
+  @IsString()
+  RELAYER_L2_ADDRESS: string;
 }
 
 export function validate(config: Record<string, unknown>) {
