@@ -41,7 +41,7 @@ export class Web3Service {
 
   async callWithdrawMulticall(multicallRequests: Array<MulticallRequest>) {
     const multicall = await this.getMulticallContract();
-    await multicall.aggregate(multicallRequests);
+    return await multicall.aggregate(multicallRequests);
   }
 
   async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {

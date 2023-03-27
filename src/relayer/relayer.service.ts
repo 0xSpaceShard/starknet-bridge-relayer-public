@@ -109,14 +109,22 @@ export class RelayerService {
   }
 
   async getLastProcessedBlock(): Promise<number> {
-    return await this.callWithRetry('mongoService.getLastProcessedBlock', async () => {
-      let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
-      if (!lastProcessedBlockNumber) {
-        const startBlock = this.configService.get('START_BLOCK');
-        await this.updateProcessedBlock(startBlock);
-        lastProcessedBlockNumber = startBlock;
-      }
-      return lastProcessedBlockNumber;
+    return await this.callWithRetry({
+      callback: async () => {
+        let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
+        if (!lastProcessedBlockNumber) {
+          const startBlock = this.configService.get('START_BLOCK');
+          await this.updateProcessedBlock(startBlock);
+          lastProcessedBlockNumber = startBlock;
+        }
+        this.logger.log('Get last processed block number', { lastProcessedBlockNumber });
+        return lastProcessedBlockNumber;
+      },
+      errorCallback: (error: any) => {
+        const errMessage = `Error to get last processed block number: ${error}`;
+        this.logger.error(errMessage);
+        throw errMessage;
+      },
     });
   }
 
@@ -132,8 +140,17 @@ export class RelayerService {
 
     while (true) {
       const skip = limit * index;
-      const withdrawals: Array<Withdrawal> = await this.callWithRetry('indexerService.getWithdraws', async () => {
-        return await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
+      const withdrawals: Array<Withdrawal> = await this.callWithRetry({
+        callback: async () => {
+          const withdrawals = await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
+          this.logger.log('List the withdrawals', { fromBlock, toBlock });
+          return withdrawals;
+        },
+        errorCallback: (error: any) => {
+          const errMessage = `Error List the withdrawals: ${error}`;
+          this.logger.error(errMessage);
+          throw errMessage;
+        },
       });
 
       if (withdrawals.length === 0) {
@@ -184,21 +201,48 @@ export class RelayerService {
   }
 
   async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
-    await this.callWithRetry('web3Service.callWithdrawMulticall', async () => {
-      await this.web3Service.callWithdrawMulticall(multicallRequest);
+    await this.callWithRetry({
+      callback: async () => {
+        const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
+        this.logger.log('Consume messages tx', { txHash: tx.hash });
+      },
+      errorCallback: (error: any) => {
+        const errMessage = `Error to consume messagess: ${error}`;
+        this.logger.error(errMessage);
+        throw errMessage;
+      },
     });
   }
 
   async updateProcessedBlock(toBlock: number) {
-    return await this.callWithRetry('mongoService.updateProcessedBlock', async () => {
-      return await this.mongoService.updateProcessedBlock(toBlock);
+    return await this.callWithRetry({
+      callback: async () => {
+        await this.mongoService.updateProcessedBlock(toBlock);
+        this.logger.log('Update processed block', { toBlock });
+      },
+      errorCallback: (error: any) => {
+        const errMessage = `Error to update processed block: ${error}`;
+        this.logger.error(errMessage);
+        throw errMessage;
+      },
     });
   }
 
   async filterWhichMessagesCanBeConsumeOnL1MulticallView(
     allMulticallRequests: Array<MulticallRequest>,
   ): Promise<MulticallResponse> {
-    return await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
+    return await this.callWithRetry({
+      callback: async () => {
+        const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
+        this.logger.log('Check can consume message on L1 multicall view', { requestsNum: allMulticallRequests.length });
+        return res;
+      },
+      errorCallback: (error: any) => {
+        const errMessage = `Check can consume message on L1 multicall view: ${error}`;
+        this.logger.error(errMessage);
+        throw errMessage;
+      },
+    });
   }
 
   getMessageHash(l2BridgeAddress: string, l1BridgeAddress: string, receiverL1: string, amount: string): string {
@@ -211,8 +255,19 @@ export class RelayerService {
   }
 
   async canProcessWithdrawals(): Promise<CheckCanProcessWithdrawalsResults> {
-    let lastProcessedBlockNumber = await this.getLastProcessedBlock();
-    const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
+    const { lastProcessedBlockNumber, stateBlockNumber } = await this.callWithRetry({
+      callback: async () => {
+        let lastProcessedBlockNumber = await this.getLastProcessedBlock();
+        const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
+        this.logger.log('Check can process withdrawals', { lastProcessedBlockNumber, stateBlockNumber });
+        return { lastProcessedBlockNumber, stateBlockNumber };
+      },
+      errorCallback: (error: any) => {
+        const errMessage = `Error check can process withdrawals: ${error}`;
+        this.logger.error(errMessage);
+        throw errMessage;
+      },
+    });
 
     return {
       status: stateBlockNumber <= lastProcessedBlockNumber,
@@ -234,7 +289,7 @@ export class RelayerService {
     return paied;
   }
 
-  async callWithRetry(functionId: string, callback: Function) {
-    return await callWithRetry(this.logger, 3, callback, functionId);
+  async callWithRetry({ callback, errorCallback }: { callback: Function; errorCallback: Function }) {
+    return await callWithRetry(3, 2000, callback, errorCallback);
   }
 }

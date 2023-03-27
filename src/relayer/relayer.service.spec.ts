@@ -15,13 +15,11 @@ import {
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
-import { Logger } from '@nestjs/common';
-import { createMock } from '@golevelup/ts-jest';
-import { WINSTON_MODULE_NEST_PROVIDER, WINSTON_MODULE_PROVIDER } from 'nest-winston';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
   let web3Service: Web3Service;
+  const verbose = false;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -44,7 +42,14 @@ describe.only('RelayerService', () => {
           provide: 'NestWinston',
           useValue: {
             log: jest.fn((message: string, params: []) => {
-              console.log(message, ...params);
+              if (verbose) {
+                console.log('INFO:', message, params);
+              }
+            }),
+            error: jest.fn((message: string, params: []) => {
+              if (verbose) {
+                console.log('ERROR:', message, params);
+              }
             }),
           },
         },
@@ -163,5 +168,23 @@ describe.only('RelayerService', () => {
       },
     ]);
     expect(isValid).toEqual(false);
+  });
+
+  it('Success callWithRetry', async () => {
+    const errorMessage = 'Error to process';
+    expect(async () => {
+      try {
+        await service.callWithRetry({
+          callback: () => {
+            throw errorMessage;
+          },
+          errorCallback: (error: any) => {
+            throw error;
+          },
+        });
+      } catch (error: any) {
+        expect(error).toEqual(errorMessage);
+      }
+    });
   });
 });
