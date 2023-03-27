@@ -1,5 +1,5 @@
 import { plainToClass, Transform } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, validateSync, Min, isString, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, validateSync, Min, isString, IsString, IsNumberString } from 'class-validator';
 import { Environment, LogLevel, LogFormat } from './config.interface';
 
 const toNumber =
@@ -55,6 +55,12 @@ export class EnvironmentVariables {
 
   @IsString()
   MONGO_URL: string;
+
+  @IsNumberString()
+  START_BLOCK: number;
+
+  @IsString()
+  INDEXER_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {
