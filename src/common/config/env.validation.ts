@@ -1,5 +1,5 @@
 import { plainToClass, Transform } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, validateSync, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, validateSync, Min, isString, IsString } from 'class-validator';
 import { Environment, LogLevel, LogFormat } from './config.interface';
 
 const toNumber =
@@ -10,7 +10,7 @@ const toNumber =
   };
 
 export class EnvironmentVariables {
-  @IsEnum(Environment)
+  // @IsEnum(Environment)
   NODE_ENV: Environment = Environment.development;
 
   @IsOptional()
@@ -40,6 +40,18 @@ export class EnvironmentVariables {
   @Min(1)
   @Transform(toNumber({ defaultValue: 100 }))
   GLOBAL_THROTTLE_LIMIT: number;
+
+  @IsString()
+  NETWORK_ID: string;
+
+  @IsString()
+  PRIVATE_KEY: string;
+
+  @IsString()
+  ALCHEMY_API_KEY: string;
+
+  @IsString()
+  INFURA_API_KEY: string;
 }
 
 export function validate(config: Record<string, unknown>) {
