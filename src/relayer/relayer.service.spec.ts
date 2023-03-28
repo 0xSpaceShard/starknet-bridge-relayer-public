@@ -15,6 +15,7 @@ import {
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
+import { PrometheusService } from 'common/prometheus';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
@@ -26,6 +27,7 @@ describe.only('RelayerService', () => {
       providers: [
         RelayerService,
         ConfigService,
+        PrometheusService,
         {
           provide: MongoService,
           useValue: MongoServiceMock,

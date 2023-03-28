@@ -15,6 +15,7 @@ import { Transfer, Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
 import { callWithRetry, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { PrometheusService } from 'common/prometheus';
 
 @Injectable()
 export class RelayerService {
@@ -25,6 +26,7 @@ export class RelayerService {
     private web3Service: Web3Service,
     private mongoService: MongoService,
     private indexerService: IndexerService,
+    private readonly prometheusService: PrometheusService,
   ) {}
 
   async run() {
@@ -118,11 +120,13 @@ export class RelayerService {
           lastProcessedBlockNumber = startBlock;
         }
         this.logger.log('Get last processed block number', { lastProcessedBlockNumber });
+        this.prometheusService.storageRequests.labels({ method: 'getLastProcessedBlock-updateProcessedBlock' }).inc();
         return lastProcessedBlockNumber;
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to get last processed block number: ${error}`;
         this.logger.error(errMessage);
+        this.prometheusService.storageErrors.labels({ method: 'getLastProcessedBlock-updateProcessedBlock' }).inc();
         throw errMessage;
       },
     });
@@ -144,11 +148,13 @@ export class RelayerService {
         callback: async () => {
           const withdrawals = await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
           this.logger.log('List the withdrawals', { fromBlock, toBlock });
+          this.prometheusService.indexerRequests.labels({ method: 'getWithdraws' }).inc();
           return withdrawals;
         },
         errorCallback: (error: any) => {
           const errMessage = `Error List the withdrawals: ${error}`;
           this.logger.error(errMessage);
+          this.prometheusService.indexerErrors.labels({ method: 'getWithdraws' }).inc();
           throw errMessage;
         },
       });
@@ -205,10 +211,12 @@ export class RelayerService {
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
         this.logger.log('Consume messages tx', { txHash: tx.hash });
+        this.prometheusService.web3ConsumeMessageRequests.labels({ method: 'callWithdrawMulticall', txHash: tx.hash }).inc();
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to consume messagess: ${error}`;
         this.logger.error(errMessage);
+        this.prometheusService.web3ConsumeMessageRequests.labels({ method: 'callWithdrawMulticall' }).inc();
         throw errMessage;
       },
     });
@@ -219,10 +227,12 @@ export class RelayerService {
       callback: async () => {
         await this.mongoService.updateProcessedBlock(toBlock);
         this.logger.log('Update processed block', { toBlock });
+        this.prometheusService.storageRequests.labels({ method: 'updateProcessedBlock'}).inc();
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to update processed block: ${error}`;
         this.logger.error(errMessage);
+        this.prometheusService.storageErrors.labels({ method: 'updateProcessedBlock' }).inc();
         throw errMessage;
       },
     });
@@ -235,11 +245,13 @@ export class RelayerService {
       callback: async () => {
         const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
         this.logger.log('Check can consume message on L1 multicall view', { requestsNum: allMulticallRequests.length });
+        this.prometheusService.web3Requests.labels({ method: 'multicallView'}).inc();
         return res;
       },
       errorCallback: (error: any) => {
         const errMessage = `Check can consume message on L1 multicall view: ${error}`;
         this.logger.error(errMessage);
+        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
         throw errMessage;
       },
     });
@@ -260,11 +272,13 @@ export class RelayerService {
         let lastProcessedBlockNumber = await this.getLastProcessedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
         this.logger.log('Check can process withdrawals', { lastProcessedBlockNumber, stateBlockNumber });
+        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
         return { lastProcessedBlockNumber, stateBlockNumber };
       },
       errorCallback: (error: any) => {
         const errMessage = `Error check can process withdrawals: ${error}`;
         this.logger.error(errMessage);
+        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
         throw errMessage;
       },
     });
