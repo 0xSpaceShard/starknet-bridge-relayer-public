@@ -6,12 +6,11 @@ import { ConfigService } from 'common/config';
 import { Web3ServiceMock } from './__mocks__/Web3Service_mock';
 import { MongoServiceMock, MongoServiceMockData } from './__mocks__/MongoService_mock';
 import { IndexerService } from 'indexer/indexer.service';
-import { IndexerServiceMock, NumberOfTimesReceivedDataFromIndexerMock } from './__mocks__/IndexerService_mock';
+import { IndexerServiceMock } from './__mocks__/IndexerService_mock';
 import {
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
   fromBlockNumberMock,
   toBlockNumberMock,
-  withdrawalsResponseMock,
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
@@ -80,9 +79,33 @@ describe.only('RelayerService', () => {
     expect(await service.getLastProcessedBlock()).toEqual(MongoServiceMockData.getLastProcessedBlock.blockNumber);
   });
 
-  it('Success getRequestWithdrawalAtBlocks', async () => {
+  it('Success canProcessWithdrawals', async () => {
+    const res = await service.canProcessWithdrawals()
+    expect(res.status).toEqual(fromBlockNumberMock < toBlockNumberMock);
+    expect(res.lastProcessedBlockNumber).toEqual(fromBlockNumberMock);
+    expect(res.stateBlockNumber).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when pagination', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-1` inside __mocks__
     const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
-    expect(res.withdrawals.length).toEqual(withdrawalsResponseMock.length * NumberOfTimesReceivedDataFromIndexerMock);
+    expect(res.withdrawals.length).toEqual(1100);
+    expect(res.fromBlock).toEqual(fromBlockNumberMock);
+    expect(res.toBlock).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when no pagination', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-2` inside __mocks__
+    const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
+    expect(res.withdrawals.length).toEqual(100);
+    expect(res.fromBlock).toEqual(fromBlockNumberMock);
+    expect(res.toBlock).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when no transactions', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-3` inside __mocks__
+    const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
+    expect(res.withdrawals.length).toEqual(0);
     expect(res.fromBlock).toEqual(fromBlockNumberMock);
     expect(res.toBlock).toEqual(toBlockNumberMock);
   });
@@ -145,9 +168,9 @@ describe.only('RelayerService', () => {
   });
 
   it('Success processWithdrawals', async () => {
+    // This function will loop 2 times
     const res = await service.processWithdrawals(fromBlockNumberMock, toBlockNumberMock);
-    expect(res.currentFromBlockNumber).toEqual(toBlockNumberMock);
-    // Check the file `IndexerServiceMock->getWithdraws->TestCase-5` inside __mocks__
+    expect(res.currentFromBlockNumber).toEqual(fromBlockNumberMock + 50);
     expect(res.totalWithdrawals).toEqual(10);
     expect(res.totalWithdrawalsProcessed).toEqual(4);
   });

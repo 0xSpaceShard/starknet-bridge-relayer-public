@@ -19,6 +19,13 @@ import { PrometheusService } from 'common/prometheus';
 
 @Injectable()
 export class RelayerService {
+  sleepAfterSuccessExec: number;
+  sleepAfterFailExec: number;
+  chunk: number;
+  networkId: string;
+  relayerAddress: string;
+  firstBlock: number;
+
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: LoggerService,
@@ -27,80 +34,86 @@ export class RelayerService {
     private mongoService: MongoService,
     private indexerService: IndexerService,
     private readonly prometheusService: PrometheusService,
-  ) {}
+  ) {
+    this.sleepAfterSuccessExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_SUCCESS_EXEC'));
+    this.sleepAfterFailExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_FAIL_EXEC'));
+    this.chunk = Number(this.configService.get('NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK'));
+    this.networkId = this.configService.get('NETWORK_ID');
+    this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
+    this.firstBlock = Number(this.configService.get('FIRST_BLOCK'))
+  }
 
   async run() {
-    const sleepAfterSuccessExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_SUCCESS_EXEC'));
-    const sleepAfterFailExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_FAIL_EXEC'));
-
     while (true) {
       try {
         const { status, lastProcessedBlockNumber, stateBlockNumber } = await this.canProcessWithdrawals();
         if (status) {
-          const res = this.processWithdrawals(lastProcessedBlockNumber, stateBlockNumber);
+          const res = await this.processWithdrawals(lastProcessedBlockNumber, stateBlockNumber);
           this.logger.log('Success process withdrawals:', res);
+        } else {
+          this.logger.log('Nothing to process.');
         }
       } catch (error: any) {
-        sleep(sleepAfterFailExec);
-        this.logger.error('Error run:', error);
+        this.logger.error(`Error process withdrawals, sleep ${this.sleepAfterSuccessExec} MS`, { error });
+        await sleep(this.sleepAfterFailExec);
+        continue;
       }
-      this.logger.log(`Relayer sleep: ${sleepAfterSuccessExec} MS`);
-      sleep(sleepAfterSuccessExec);
+      this.logger.log(`Relayer sleep ${this.sleepAfterSuccessExec} MS`);
+      await sleep(this.sleepAfterSuccessExec);
     }
   }
 
   async processWithdrawals(lastProcessedBlock: number, stateBlockNumber: number): Promise<ProcessWithdrawalsResults> {
-    const chunk = Number(this.configService.get('NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK'));
-
     let currentFromBlockNumber = lastProcessedBlock;
-    let currentToBlockNumber = currentFromBlockNumber + chunk;
-
+    let currentToBlockNumber = lastProcessedBlock;
     let totalWithdrawalsProcessed = 0;
     let totalWithdrawals = 0;
 
     // Start processed withdrawals between 2 blocks.
-    while (currentToBlockNumber <= stateBlockNumber) {
+    while (currentToBlockNumber !== stateBlockNumber) {
+      // Update the block numbers.
+      currentFromBlockNumber = currentToBlockNumber;
+
+      if (currentToBlockNumber + this.chunk > stateBlockNumber && currentToBlockNumber != stateBlockNumber) {
+        currentToBlockNumber = stateBlockNumber;
+      } else {
+        currentToBlockNumber += this.chunk;
+      }
+
+      // Update the block numbers.
+      this.logger.log('Process transactions between blocks', { currentFromBlockNumber, currentToBlockNumber });
+
       // Get Withdrawals from the indexer
       const requestWithdrawalAtBlocks = await this.getRequestWithdrawalAtBlocks(
         currentFromBlockNumber,
         currentToBlockNumber,
       );
 
-      // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
-      const allMulticallRequests: Array<MulticallRequest> = this.getMulticallRequests(
-        requestWithdrawalAtBlocks.withdrawals,
-      );
-
-      // Check which message hashs exists on L1.
-      const viewMulticallResponse: MulticallResponse = await this.filterWhichMessagesCanBeConsumeOnL1MulticallView(
-        allMulticallRequests,
-      );
-
-      // Filter the valid messages that can be consumed on L1.
-      const allMulticallRequestsForMessagesCanBeConsumedOnL1 = this.getListOfValidMessagesToConsumedOnL1(
-        viewMulticallResponse,
-        allMulticallRequests,
-      );
-
-      // Consume the messages.
-      await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1);
-
-      // Store the last processed block on database.
-      await this.updateProcessedBlock(currentToBlockNumber);
-
-      // Update the block numbers.
-      if (currentToBlockNumber + chunk > stateBlockNumber && currentToBlockNumber != stateBlockNumber) {
-        currentToBlockNumber = stateBlockNumber;
-      } else {
-        currentToBlockNumber += chunk;
+      if (requestWithdrawalAtBlocks.withdrawals.length > 0) {
+        // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
+        const allMulticallRequests: Array<MulticallRequest> = this.getMulticallRequests(
+          requestWithdrawalAtBlocks.withdrawals,
+        );
+        // Check which message hashs exists on L1.
+        const viewMulticallResponse: MulticallResponse = await this.filterWhichMessagesCanBeConsumeOnL1MulticallView(
+          allMulticallRequests,
+        );
+        // Filter the valid messages that can be consumed on L1.
+        const allMulticallRequestsForMessagesCanBeConsumedOnL1 = this.getListOfValidMessagesToConsumedOnL1(
+          viewMulticallResponse,
+          allMulticallRequests,
+        );
+        // Consume the messages.
+        if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
+          await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1);
+        }
+        // Store the last processed block on database.
+        await this.updateProcessedBlock(currentToBlockNumber);
+        // Update stats.
+        totalWithdrawalsProcessed += allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
+        totalWithdrawals += allMulticallRequests.length;
       }
-      currentFromBlockNumber += chunk;
-
-      // Update stats.
-      totalWithdrawalsProcessed += allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
-      totalWithdrawals += allMulticallRequests.length;
     }
-
     return {
       currentFromBlockNumber,
       currentToBlockNumber,
@@ -115,9 +128,8 @@ export class RelayerService {
       callback: async () => {
         let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
         if (!lastProcessedBlockNumber) {
-          const startBlock = this.configService.get('START_BLOCK');
-          await this.updateProcessedBlock(startBlock);
-          lastProcessedBlockNumber = startBlock;
+          await this.updateProcessedBlock(this.firstBlock);
+          lastProcessedBlockNumber = this.firstBlock;
         }
         this.logger.log('Get last processed block number', { lastProcessedBlockNumber });
         this.prometheusService.storageRequests.labels({ method: 'getLastProcessedBlock-updateProcessedBlock' }).inc();
@@ -132,22 +144,22 @@ export class RelayerService {
     });
   }
 
-  async getRequestWithdrawalAtBlocks(fromBlock: number, toBlock: number): Promise<RequestWithdrawalAtBlocks> {
+  async getRequestWithdrawalAtBlocks(fromBlock: number, endBlock: number): Promise<RequestWithdrawalAtBlocks> {
     const limit = 1000;
     let index = 0;
 
     const listRequestWithdrawalsAtBlocks: RequestWithdrawalAtBlocks = {
       fromBlock,
-      toBlock,
+      toBlock: endBlock,
       withdrawals: [],
     };
 
     while (true) {
-      const skip = limit * index;
+      const offset = limit * index;
       const withdrawals: Array<Withdrawal> = await this.callWithRetry({
         callback: async () => {
-          const withdrawals = await this.indexerService.getWithdraws(limit, skip, fromBlock, toBlock);
-          this.logger.log('List the withdrawals', { fromBlock, toBlock });
+          const withdrawals = await this.indexerService.getWithdraws(limit, offset, fromBlock, endBlock);
+          this.logger.log('List the withdrawals', { fromBlock, endBlock, withdrawalsLength: withdrawals.length });
           this.prometheusService.indexerRequests.labels({ method: 'getWithdraws' }).inc();
           return withdrawals;
         },
@@ -164,6 +176,10 @@ export class RelayerService {
       }
 
       listRequestWithdrawalsAtBlocks.withdrawals.push(...withdrawals);
+
+      if (withdrawals.length < limit) {
+        break;
+      }
       index++;
     }
     return listRequestWithdrawalsAtBlocks;
@@ -171,7 +187,7 @@ export class RelayerService {
 
   getMulticallRequests(withdrawals: Array<Withdrawal>): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
-    const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.configService.get('NETWORK_ID'));
+    const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
 
     for (let i = 0; i < withdrawals.length; i++) {
       const withdrawal = withdrawals[i];
@@ -211,7 +227,9 @@ export class RelayerService {
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
         this.logger.log('Consume messages tx', { txHash: tx.hash });
-        this.prometheusService.web3ConsumeMessageRequests.labels({ method: 'callWithdrawMulticall', txHash: tx.hash }).inc();
+        this.prometheusService.web3ConsumeMessageRequests
+          .labels({ method: 'callWithdrawMulticall', txHash: tx.hash })
+          .inc();
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to consume messagess: ${error}`;
@@ -227,7 +245,7 @@ export class RelayerService {
       callback: async () => {
         await this.mongoService.updateProcessedBlock(toBlock);
         this.logger.log('Update processed block', { toBlock });
-        this.prometheusService.storageRequests.labels({ method: 'updateProcessedBlock'}).inc();
+        this.prometheusService.storageRequests.labels({ method: 'updateProcessedBlock' }).inc();
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to update processed block: ${error}`;
@@ -245,13 +263,13 @@ export class RelayerService {
       callback: async () => {
         const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
         this.logger.log('Check can consume message on L1 multicall view', { requestsNum: allMulticallRequests.length });
-        this.prometheusService.web3Requests.labels({ method: 'multicallView'}).inc();
+        this.prometheusService.web3Requests.labels({ method: 'multicallView' }).inc();
         return res;
       },
       errorCallback: (error: any) => {
-        const errMessage = `Check can consume message on L1 multicall view: ${error}`;
+        const errMessage = `Error to check messages can be consumed on L1 multicall view: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
+        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
         throw errMessage;
       },
     });
@@ -267,35 +285,34 @@ export class RelayerService {
   }
 
   async canProcessWithdrawals(): Promise<CheckCanProcessWithdrawalsResults> {
-    const { lastProcessedBlockNumber, stateBlockNumber } = await this.callWithRetry({
+    return await this.callWithRetry({
       callback: async () => {
         let lastProcessedBlockNumber = await this.getLastProcessedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
-        this.logger.log('Check can process withdrawals', { lastProcessedBlockNumber, stateBlockNumber });
-        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
-        return { lastProcessedBlockNumber, stateBlockNumber };
+
+        this.logger.log('Check can process withdrawals', {
+          status: lastProcessedBlockNumber < stateBlockNumber,
+          lastProcessedBlockNumber,
+          stateBlockNumber,
+        });
+
+        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
+        return { status: lastProcessedBlockNumber < stateBlockNumber, lastProcessedBlockNumber, stateBlockNumber };
       },
       errorCallback: (error: any) => {
         const errMessage = `Error check can process withdrawals: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3Errors.labels({ method: 'multicallView'}).inc();
+        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
         throw errMessage;
       },
     });
-
-    return {
-      status: stateBlockNumber <= lastProcessedBlockNumber,
-      lastProcessedBlockNumber,
-      stateBlockNumber,
-    };
   }
 
   checkIfUserPaiedTheRelayer(transfers: Transfer[]): boolean {
     let paied: boolean = false;
-    const relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
     for (let i = 0; i < transfers.length; i++) {
       const transfer = transfers[i];
-      if (transfer.to == relayerAddress) {
+      if (transfer.to == this.relayerAddress) {
         paied = true;
         break;
       }
