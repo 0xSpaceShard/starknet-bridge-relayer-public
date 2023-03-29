@@ -9,13 +9,13 @@ import { Withdrawal } from './entities';
 export class IndexerService {
   constructor(@InjectGraphQLClient() private readonly gqlClient: GraphQLClient) {}
 
-  async getWithdraws(limit: number, skip: number, fromBlock: number, toBlock: number): Promise<Array<Withdrawal>> {
+  async getWithdraws(limit: number, offset: number, startBlock: number, endBlock: number): Promise<Array<Withdrawal>> {
     const res: GetWithdrawalsResponse = await this.gqlClient.request(getWithdrawalsQuery, {
       limit,
-      skip,
-      fromBlock,
-      toBlock,
+      offset,
+      startBlock,
+      endBlock,
     });
-    return res.data.withdraw;
+    return res?.withdraw;
   }
 }

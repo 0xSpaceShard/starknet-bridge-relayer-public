@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { IndexerService } from './indexer.service';
 import { GraphQLRequestModule } from '@golevelup/nestjs-graphql-request';
-import { ConfigService } from 'common/config';
+import { ConfigModule, ConfigService } from 'common/config';
 
 @Module({
   providers: [IndexerService],
   imports: [
-    ConfigService,
+    ConfigModule,
     GraphQLRequestModule.forRootAsync(GraphQLRequestModule, {
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -14,5 +14,6 @@ import { ConfigService } from 'common/config';
       }),
     }),
   ],
+  exports: [IndexerService]
 })
 export class IndexerModule {}
