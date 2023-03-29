@@ -15,7 +15,7 @@ export const ADDRESSES: NetworkContractAddress = {
 
 export const getProviderURLs = (configs: ConfigService): Array<Provider> => {
   return [
-    { name: 'alchemy', url: configs.get('ALCHEMY_API_KEY') },
-    { name: 'infura', url: configs.get('INFURA_API_KEY') },
+    { name: 'alchemy', url: configs.get('ALCHEMY_RPC_URL') },
+    { name: 'infura', url: configs.get('INFURA_RPC_URL') },
   ];
 };
