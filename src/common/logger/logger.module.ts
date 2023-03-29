@@ -13,8 +13,8 @@ import { ConfigModule, ConfigService, LogFormat } from 'common/config';
         const level = configService.get('LOG_LEVEL');
         const format = configService.get('LOG_FORMAT');
         const isJSON = format === LogFormat.json;
-        const transport = new winston.transports.Console({ format: isJSON ? json() : simple() });
-        return { level, transport };
+        const transports = new winston.transports.Console({ format: isJSON ? json() : simple() });
+        return { level, transports };
       },
     }),
   ],
