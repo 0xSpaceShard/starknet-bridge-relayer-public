@@ -24,7 +24,7 @@ export class MongoService implements IStorage {
     const res = await this.relayerMetadataModel.findOne(query).exec();
     return {
       id: relayerMetadataId,
-      blockNumber: res.blockNumber,
+      blockNumber: res?.blockNumber,
     };
   }
 }
