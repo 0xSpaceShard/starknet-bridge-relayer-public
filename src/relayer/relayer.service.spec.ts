@@ -15,6 +15,7 @@ import {
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
+import { getMessageHash } from './utils';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
@@ -71,7 +72,7 @@ describe.only('RelayerService', () => {
     const l1BridgeAddress = '0xf29aE3446Ce4688fCc792b232C21D1B9581E7baC';
     const l1ReceiverAddress = '0x0000000000000000000000000000000000000001';
     const amount = '100';
-    const messagehash = service.getMessageHash(l2BridgeAddress, l1BridgeAddress, l1ReceiverAddress, amount);
+    const messagehash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1ReceiverAddress, amount);
     expect(messagehash).toEqual(expectedHash);
   });
 
