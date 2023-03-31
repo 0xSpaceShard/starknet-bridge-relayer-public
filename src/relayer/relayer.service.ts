@@ -279,7 +279,7 @@ export class RelayerService {
     const amountUint256 = uint256.bnToUint256(amount.toString());
     const payload = [TRANSFER_FROM_STARKNET, receiverL1, amountUint256.low, amountUint256.high];
     return ethers.utils.solidityKeccak256(
-      ['uint256', 'address', 'uint256', 'uint256[]'],
+      ['uint256', 'uint256', 'uint256', 'uint256[]'],
       [l2BridgeAddress, l1BridgeAddress, payload.length, payload],
     );
   }
