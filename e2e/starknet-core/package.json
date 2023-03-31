@@ -6,6 +6,10 @@
   "dependencies": {
     "hardhat": "^2.13.0"
   },
+  "scripts": {
+    "e2e:node": "npx hardhat node",
+    "e2e:setup": "npx hardhat run scripts/StarknetCore.ts --network localhost"
+  },
   "devDependencies": {
     "@ethersproject/abi": "^5.4.7",
     "@ethersproject/providers": "^5.4.7",

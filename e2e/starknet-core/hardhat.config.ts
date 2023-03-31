@@ -9,6 +9,9 @@ const config: HardhatUserConfig = {
         url: process.env.RPC_URL || '',
       },
     },
+    localhost: {
+      url: 'http://0.0.0.0:8545',
+    },
   },
 };
 

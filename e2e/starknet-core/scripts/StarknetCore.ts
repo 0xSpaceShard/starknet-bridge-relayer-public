@@ -2,7 +2,7 @@ import { ethers } from 'hardhat';
 import { IStarknetCoreProxy, Starknet } from '../typechain-types';
 
 async function main() {
-  const provider = new ethers.providers.JsonRpcProvider('http://0.0.0.0:8545');
+  // const provider = new ethers.providers.JsonRpcProvider('http://0.0.0.0:8545');
 
   const StarknetDAO = '0xd5fb66caee881367df4409b17fd53a2ef0d9b263';
   const StarknetCoreAddress = '0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4';

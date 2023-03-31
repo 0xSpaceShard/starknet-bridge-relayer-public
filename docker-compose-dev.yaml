@@ -60,14 +60,15 @@ services:
       - mongo
       - indexer
 
-  ganache:
+  hardhat:
     build:
-      context: .
-      dockerfile: ./e2e/docker/Dockerfile_ganache
+      context: ./e2e/starknet-core
     restart: always
+    environment:
+      - RPC_URL=${RPC_URL}
     ports:
       - 8545:8545
-    entrypoint: ['ganache-cli', '-f', '${RPC_URL}', '-h', '0.0.0.0']
+    entrypoint: ['/bin/bash', "-c", 'scripts/start.sh']
 
 volumes:
   mongo-data:
