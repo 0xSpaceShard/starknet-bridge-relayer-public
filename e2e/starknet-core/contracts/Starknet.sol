@@ -1181,11 +1181,20 @@ contract Starknet is
         require(state_.blockNumber == initialBlockNumber + 1, 'INVALID_FINAL_BLOCK_NUMBER');
     }
 
-    function addMessage(bytes32 msgHash) external {
-        l2ToL1Messages()[msgHash] = 1;
+    function addMessage(bytes32[] memory msgHashes) external {
+        for (uint256 i = 0; i < msgHashes.length; i++) {
+            l2ToL1Messages()[msgHashes[i]] = 1;
+        }
     }
 
     function relayer() external pure returns(bool){
         return true;
+    }
+
+    /**
+      Returns the current block number.
+    */
+    function setStateBlockNumber(int256 _blockNumber) external {
+        state().blockNumber = _blockNumber;
     }
 }
