@@ -16,6 +16,7 @@ import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
 import { getMessageHash } from './utils';
+import { ADDRESSES } from 'web3/web3.constants';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
@@ -123,7 +124,7 @@ describe.only('RelayerService', () => {
       const req = res[i];
       const l1BridgeAddress =
         l2BridgeAddressToL1Addresses[withdrawalAtBlocksResponse.withdrawals[i].bridgeAddress].l1BridgeAddress;
-      expect(req.target).toEqual(l1BridgeAddress);
+      expect(req.target).toEqual(ADDRESSES['goerli'].starknetCore);
       // Example: calldata = 0xa46efaf3c96dbee3b8d1478353813a10f1c9b396c187e8fa71cd80902b5005edb62d9b28
       // a46efaf3 => function selector => 4Bytes
       // messageHash => c96dbee3b8d1478353813a10f1c9b396c187e8fa71cd80902b5005edb62d9b28 => 32Bytes
@@ -142,6 +143,7 @@ describe.only('RelayerService', () => {
       allMulticallRequests,
     );
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
       viewMulticallResponse,
       allMulticallRequests,
     );
@@ -161,6 +163,7 @@ describe.only('RelayerService', () => {
       allMulticallRequests,
     );
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
       viewMulticallResponse,
       allMulticallRequests,
     );

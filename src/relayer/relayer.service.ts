@@ -15,6 +15,7 @@ import { callWithRetry, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { getMessageHash } from './utils';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class RelayerService {
@@ -39,7 +40,7 @@ export class RelayerService {
     this.chunk = Number(this.configService.get('NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK'));
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
-    this.firstBlock = Number(this.configService.get('FIRST_BLOCK'))
+    this.firstBlock = Number(this.configService.get('FIRST_BLOCK'));
   }
 
   async run() {
@@ -99,6 +100,7 @@ export class RelayerService {
         );
         // Filter the valid messages that can be consumed on L1.
         const allMulticallRequestsForMessagesCanBeConsumedOnL1 = this.getListOfValidMessagesToConsumedOnL1(
+          requestWithdrawalAtBlocks.withdrawals,
           viewMulticallResponse,
           allMulticallRequests,
         );
@@ -191,9 +193,9 @@ export class RelayerService {
     for (let i = 0; i < withdrawals.length; i++) {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
-      if (l1BridgeAddress && this.checkIfUserPaiedTheRelayer(withdrawal.transfers)) {
+      if (this.checkIfUserPaiedTheRelayer(withdrawal.transfers)) {
         multicallRequests.push({
-          target: l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress,
+          target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
             getMessageHash(withdrawal.bridgeAddress, l1BridgeAddress, withdrawal.l1Recipient, withdrawal.amount),
           ]),
@@ -204,19 +206,26 @@ export class RelayerService {
   }
 
   getListOfValidMessagesToConsumedOnL1(
+    withdrawals: Array<Withdrawal>,
     multicallResponse: MulticallResponse,
     allMulticallRequest: Array<MulticallRequest>,
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
-
+    const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
     // Check which withdrawal can be processes
     for (let i = 0; i < multicallResponse.returnData.length; i++) {
       const txReturnData = multicallResponse.returnData[i];
 
       // If the `txReturnData` is ZERO it means the messages was already consumed.
       if (txReturnData == ZeroBytes) continue;
+      const withdrawal = withdrawals[i];
+      const target = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
 
-      multicallRequests.push(allMulticallRequest[i]);
+      const l1RecipientDecoded = ethers.utils.defaultAbiCoder.decode(['address'], withdrawal.l1Recipient)[0];
+      multicallRequests.push({
+        target,
+        callData: this.web3Service.encodeBridgeToken('withdraw', [withdrawal.amount, l1RecipientDecoded]),
+      });
     }
     return multicallRequests;
   }
