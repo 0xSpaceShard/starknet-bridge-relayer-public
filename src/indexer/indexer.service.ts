@@ -1,8 +1,8 @@
 import { InjectGraphQLClient } from '@golevelup/nestjs-graphql-request';
 import { Injectable } from '@nestjs/common';
 import { GraphQLClient } from 'graphql-request';
-import { GetWithdrawalsResponse } from './indexer.interface';
-import { getWithdrawalsQuery } from './queries';
+import { GetLastIndexedBlockResponse, GetWithdrawalsResponse } from './indexer.interface';
+import { getWithdrawalsQuery, GetLastIndexedBlockQuery } from './queries';
 import { Withdrawal } from './entities';
 
 @Injectable()
@@ -17,5 +17,10 @@ export class IndexerService {
       endBlock,
     });
     return res?.withdraw;
+  }
+
+  async getLastIndexedBlock(): Promise<number> {
+    const res: GetLastIndexedBlockResponse = await this.gqlClient.request(GetLastIndexedBlockQuery, {});
+    return res?.withdraws[0]?.blockHeight;
   }
 }
