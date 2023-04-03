@@ -46,9 +46,9 @@ export class RelayerService {
   async run() {
     while (true) {
       try {
-        const { status, lastProcessedBlockNumber, stateBlockNumber } = await this.canProcessWithdrawals();
-        if (status) {
-          const res = await this.processWithdrawals(lastProcessedBlockNumber, stateBlockNumber);
+        const { fromBlock, toBlock } = await this.canProcessWithdrawals();
+        if (fromBlock < toBlock) {
+          const res = await this.processWithdrawals(fromBlock, toBlock);
           this.logger.log('Success process withdrawals:', res);
         } else {
           this.logger.log('Nothing to process.');
@@ -63,19 +63,19 @@ export class RelayerService {
     }
   }
 
-  async processWithdrawals(lastProcessedBlock: number, stateBlockNumber: number): Promise<ProcessWithdrawalsResults> {
-    let currentFromBlockNumber = lastProcessedBlock;
-    let currentToBlockNumber = lastProcessedBlock;
+  async processWithdrawals(fromBlock: number, toBlock: number): Promise<ProcessWithdrawalsResults> {
+    let currentFromBlockNumber = fromBlock;
+    let currentToBlockNumber = fromBlock;
     let totalWithdrawalsProcessed = 0;
     let totalWithdrawals = 0;
 
     // Start processed withdrawals between 2 blocks.
-    while (currentToBlockNumber !== stateBlockNumber) {
+    while (currentToBlockNumber !== toBlock) {
       // Update the block numbers.
       currentFromBlockNumber = currentToBlockNumber;
 
-      if (currentToBlockNumber + this.chunk > stateBlockNumber && currentToBlockNumber != stateBlockNumber) {
-        currentToBlockNumber = stateBlockNumber;
+      if (currentToBlockNumber + this.chunk > toBlock && currentToBlockNumber != toBlock) {
+        currentToBlockNumber = toBlock;
       } else {
         currentToBlockNumber += this.chunk;
       }
@@ -118,7 +118,7 @@ export class RelayerService {
     return {
       currentFromBlockNumber,
       currentToBlockNumber,
-      stateBlockNumber,
+      stateBlockNumber: toBlock,
       totalWithdrawalsProcessed,
       totalWithdrawals,
     };
@@ -287,16 +287,19 @@ export class RelayerService {
     return await this.callWithRetry({
       callback: async () => {
         let lastProcessedBlockNumber = await this.getLastProcessedBlock();
+        const lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
 
         this.logger.log('Check can process withdrawals', {
-          status: lastProcessedBlockNumber < stateBlockNumber,
-          lastProcessedBlockNumber,
-          stateBlockNumber,
+          fromBlock: lastProcessedBlockNumber,
+          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
         });
 
-        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
-        return { status: lastProcessedBlockNumber < stateBlockNumber, lastProcessedBlockNumber, stateBlockNumber };
+        this.prometheusService.web3Errors.labels({ method: 'canProcessWithdrawals' }).inc();
+        return {
+          fromBlock: lastProcessedBlockNumber,
+          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+        };
       },
       errorCallback: (error: any) => {
         const errMessage = `Error check can process withdrawals: ${error}`;

@@ -28,7 +28,6 @@ export interface ProcessWithdrawalsResults {
 }
 
 export interface CheckCanProcessWithdrawalsResults {
-  status: boolean;
-  lastProcessedBlockNumber: number;
-  stateBlockNumber: number;
+  fromBlock: number;
+  toBlock: number;
 }
