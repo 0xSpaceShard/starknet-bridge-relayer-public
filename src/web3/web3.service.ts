@@ -70,7 +70,7 @@ export class Web3Service {
       try {
         const provider = new ethers.providers.JsonRpcProvider(providerURLs[i].url);
         await provider.getBlockNumber();
-        return provider;
+        return new ethers.Wallet(this.configService.get("PRIVATE_KEY"), provider);
       } catch (error: any) {
         console.log(`Provider: ${providerURLs[i].name} not available`, error);
         continue;

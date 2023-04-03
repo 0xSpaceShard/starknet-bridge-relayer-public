@@ -29,7 +29,7 @@ describe('Web3Service', () => {
   });
 
   it('Sucess get provider', async() => {
-    const provider = service.getProvider();
+    const provider = await service.getProvider();
     expect(provider).not.toBeNull();
   });
 });
