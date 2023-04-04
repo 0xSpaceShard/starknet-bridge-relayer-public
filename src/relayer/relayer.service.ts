@@ -46,9 +46,9 @@ export class RelayerService {
   async run() {
     while (true) {
       try {
-        const { fromBlock, toBlock } = await this.canProcessWithdrawals();
+        const { fromBlock, toBlock, stateBlockNumber } = await this.canProcessWithdrawals();
         if (fromBlock < toBlock) {
-          const res = await this.processWithdrawals(fromBlock, toBlock);
+          const res = await this.processWithdrawals(fromBlock, toBlock, stateBlockNumber);
           this.logger.log('Success process withdrawals:', res);
         } else {
           this.logger.log('Nothing to process.');
@@ -63,7 +63,7 @@ export class RelayerService {
     }
   }
 
-  async processWithdrawals(fromBlock: number, toBlock: number): Promise<ProcessWithdrawalsResults> {
+  async processWithdrawals(fromBlock: number, toBlock: number, stateBlockNumber: number): Promise<ProcessWithdrawalsResults> {
     let currentFromBlockNumber = fromBlock;
     let currentToBlockNumber = fromBlock;
     let totalWithdrawalsProcessed = 0;
@@ -118,7 +118,7 @@ export class RelayerService {
     return {
       currentFromBlockNumber,
       currentToBlockNumber,
-      stateBlockNumber: toBlock,
+      stateBlockNumber,
       totalWithdrawalsProcessed,
       totalWithdrawals,
     };
@@ -293,12 +293,14 @@ export class RelayerService {
         this.logger.log('Check can process withdrawals', {
           fromBlock: lastProcessedBlockNumber,
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          stateBlockNumber
         });
 
         this.prometheusService.web3Errors.labels({ method: 'canProcessWithdrawals' }).inc();
         return {
           fromBlock: lastProcessedBlockNumber,
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          stateBlockNumber 
         };
       },
       errorCallback: (error: any) => {

@@ -30,4 +30,5 @@ export interface ProcessWithdrawalsResults {
 export interface CheckCanProcessWithdrawalsResults {
   fromBlock: number;
   toBlock: number;
+  stateBlockNumber: number;
 }
