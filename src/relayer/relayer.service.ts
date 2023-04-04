@@ -63,7 +63,11 @@ export class RelayerService {
     }
   }
 
-  async processWithdrawals(fromBlock: number, toBlock: number, stateBlockNumber: number): Promise<ProcessWithdrawalsResults> {
+  async processWithdrawals(
+    fromBlock: number,
+    toBlock: number,
+    stateBlockNumber: number,
+  ): Promise<ProcessWithdrawalsResults> {
     let currentFromBlockNumber = fromBlock;
     let currentToBlockNumber = fromBlock;
     let totalWithdrawalsProcessed = 0;
@@ -193,7 +197,11 @@ export class RelayerService {
     for (let i = 0; i < withdrawals.length; i++) {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
-      if (this.checkIfUserPaiedTheRelayer(withdrawal.transfers)) {
+
+      if (
+        l1BridgeAddress &&
+        (this.checkIfUserPaiedTheRelayer(withdrawal.transfers) || this.configService.get('TRUSTED_MODE') == 'true')
+      ) {
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -293,13 +301,13 @@ export class RelayerService {
         this.logger.log('Check can process withdrawals', {
           fromBlock: lastProcessedBlockNumber,
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
-          stateBlockNumber
+          stateBlockNumber,
         });
 
         return {
           fromBlock: lastProcessedBlockNumber,
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
-          stateBlockNumber 
+          stateBlockNumber,
         };
       },
       errorCallback: (error: any) => {

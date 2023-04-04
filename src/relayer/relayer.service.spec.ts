@@ -3,16 +3,13 @@ import { RelayerService } from './relayer.service';
 import { MongoService } from 'storage/mongo/mongo.service';
 import { Web3Service } from 'web3/web3.service';
 import { ConfigService } from 'common/config';
-// import { Web3ServiceMock } from './__mocks__/Web3Service_mock';
-// import { MongoServiceMock, MongoServiceMockData } from './__mocks__/MongoService_mock';
 import { IndexerService } from 'indexer/indexer.service';
 import { totalWithdrawalMock } from './__mocks__/IndexerService_mock';
 import {
   canConsumeMessageOnL1MulticallViewResponse,
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
-  // fromBlockNumberMock,
-  // toBlockNumberMock,
   withdrawalsResponseMock,
+  withdrawalsResponseMock2,
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
@@ -247,7 +244,7 @@ describe.only('RelayerService', () => {
     const expectedValues = [
       { fromBlock: 100, toBlock: 150, stateBlockNumber: 150 },
       { fromBlock: 150, toBlock: 170, stateBlockNumber: 170 },
-      { fromBlock: 170, toBlock: 220, stateBlockNumber: 230 }
+      { fromBlock: 170, toBlock: 220, stateBlockNumber: 230 },
     ];
     for (let i = 0; i < expectedValues.length; i++) {
       const { fromBlock, toBlock, stateBlockNumber } = expectedValues[i];
@@ -314,5 +311,38 @@ describe.only('RelayerService', () => {
         expect(error).toEqual(errorMessage);
       }
     });
+  });
+
+  it('Success trusted mode', async () => {
+    const testCases = [
+      {
+        fromBlock: 100,
+        toBlock: 150,
+        withdrawals: withdrawalsResponseMock2,
+        trustedMode: true,
+        expectedLength: 5,
+      },
+      {
+        fromBlock: 100,
+        toBlock: 150,
+        withdrawals: withdrawalsResponseMock2,
+        trustedMode: false,
+        expectedLength: 2,
+      },
+    ];
+
+    for (let i = 0; i < testCases.length; i++) {
+      const testCase = testCases[i];
+      process.env.TRUSTED_MODE = String(testCase.trustedMode);
+
+      jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(testCase.withdrawals));
+      const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(
+        testCase.fromBlock,
+        testCase.toBlock,
+      );
+
+      const res = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+      expect(res.length).toEqual(testCase.expectedLength);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { plainToClass, Transform } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, validateSync, Min, isString, IsString, IsNumberString, IsBoolean, IsBooleanString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, validateSync, Min, IsString, IsNumberString } from 'class-validator';
 import { Environment, LogLevel, LogFormat } from './config.interface';
 
 const toNumber =
@@ -58,7 +58,7 @@ export class EnvironmentVariables {
 
   @IsNumberString()
   FIRST_BLOCK: number;
-  
+
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -87,7 +87,11 @@ export class EnvironmentVariables {
   @IsNumber()
   @Min(1)
   @Transform(toNumber({ defaultValue: 1000000000 }))
-  MAX_PRIORITY_FEE_PER_GAS: number
+  MAX_PRIORITY_FEE_PER_GAS: number;
+
+  @IsOptional()
+  @IsString()
+  TRUSTED_MODE: string;
 }
 
 export function validate(config: Record<string, unknown>) {
