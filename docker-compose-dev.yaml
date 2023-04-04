@@ -65,7 +65,8 @@ services:
       context: ./e2e/starknet-core
     restart: always
     environment:
-      - RPC_URL=${RPC_URL}
+      RPC_URL: ${RPC_URL}
+      NETWORK_ID: ${NETWORK_ID}
     ports:
       - 8545:8545
     entrypoint: ['/bin/bash', "-c", 'scripts/start.sh']
