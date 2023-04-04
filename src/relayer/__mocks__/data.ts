@@ -1,7 +1,6 @@
-export const fromBlockNumberMock = 300000;
-export const toBlockNumberMock = 300100;
+import { Withdrawal } from 'indexer/entities';
 
-export const withdrawalsResponseMock = [
+export const withdrawalsResponseMock: Array<Withdrawal> = [
   {
     blockHeight: 300117,
     bridgeAddress: '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b',
@@ -16,6 +15,7 @@ export const withdrawalsResponseMock = [
       },
     ],
     timestamp: '2022-08-17T01:57:41',
+    __typename: 'withdraw',
   },
   {
     blockHeight: 300117,
@@ -31,6 +31,7 @@ export const withdrawalsResponseMock = [
       },
     ],
     timestamp: '2022-08-17T01:57:41',
+    __typename: 'withdraw',
   },
   {
     blockHeight: 300121,
@@ -46,6 +47,7 @@ export const withdrawalsResponseMock = [
       },
     ],
     timestamp: '2022-08-17T02:03:56',
+    __typename: 'withdraw',
   },
   {
     blockHeight: 300121,
@@ -61,6 +63,7 @@ export const withdrawalsResponseMock = [
       },
     ],
     timestamp: '2022-08-17T02:03:56',
+    __typename: 'withdraw',
   },
   {
     blockHeight: 300122,
@@ -76,13 +79,14 @@ export const withdrawalsResponseMock = [
       },
     ],
     timestamp: '2022-08-17T02:06:02',
+    __typename: 'withdraw',
   },
 ];
 
-export const canConsumeMessageOnL1MulticallViewResponseExpectedOutput  = {
+export const canConsumeMessageOnL1MulticallViewResponseExpectedOutput = {
   valid: 2,
   notValid: 3,
-}
+};
 
 export const canConsumeMessageOnL1MulticallViewResponse = {
   blockNumber: 310000,
