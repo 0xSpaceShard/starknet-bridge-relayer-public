@@ -242,7 +242,7 @@ export class RelayerService {
       errorCallback: (error: any) => {
         const errMessage = `Error to consume messagess: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3ConsumeMessageRequests.labels({ method: 'callWithdrawMulticall' }).inc();
+        this.prometheusService.web3Errors.labels({ method: 'callWithdrawMulticall' }).inc();
         throw errMessage;
       },
     });
@@ -271,13 +271,13 @@ export class RelayerService {
       callback: async () => {
         const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
         this.logger.log('Check can consume message on L1 multicall view', { requestsNum: allMulticallRequests.length });
-        this.prometheusService.web3Requests.labels({ method: 'multicallView' }).inc();
+        this.prometheusService.web3Requests.labels({ method: 'canConsumeMessageOnL1MulticallView' }).inc();
         return res;
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to check messages can be consumed on L1 multicall view: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
+        this.prometheusService.web3Errors.labels({ method: 'canConsumeMessageOnL1MulticallView' }).inc();
         throw errMessage;
       },
     });
@@ -296,7 +296,6 @@ export class RelayerService {
           stateBlockNumber
         });
 
-        this.prometheusService.web3Errors.labels({ method: 'canProcessWithdrawals' }).inc();
         return {
           fromBlock: lastProcessedBlockNumber,
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
@@ -306,7 +305,6 @@ export class RelayerService {
       errorCallback: (error: any) => {
         const errMessage = `Error check can process withdrawals: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3Errors.labels({ method: 'multicallView' }).inc();
         throw errMessage;
       },
     });
