@@ -82,6 +82,12 @@ export class EnvironmentVariables {
 
   @IsString()
   RELAYER_L2_ADDRESS: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(toNumber({ defaultValue: 1000000000 }))
+  MAX_PRIORITY_FEE_PER_GAS: number
 }
 
 export function validate(config: Record<string, unknown>) {

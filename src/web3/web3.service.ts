@@ -18,7 +18,10 @@ import * as StarknetTokenBridgeABI from './abis/StarknetTokenBridge.json';
 
 @Injectable()
 export class Web3Service {
-  constructor(private configService: ConfigService) {}
+  maxPriorityFeePerGas: number;
+  constructor(private configService: ConfigService) {
+    this.maxPriorityFeePerGas = this.configService.get('MAX_PRIORITY_FEE_PER_GAS');
+  }
 
   async getMulticallContract(): Promise<Multicall> {
     const provider = await this.getProvider();
@@ -42,12 +45,12 @@ export class Web3Service {
 
   async callWithdrawMulticall(multicallRequests: Array<MulticallRequest>) {
     const multicall = await this.getMulticallContract();
-    return await multicall.aggregate(multicallRequests);
+    return await multicall.aggregate(multicallRequests, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
   }
 
   async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {
     const starknetTokenBridge = await this.getStarknetTokenBridgeContract(bridgeAddress);
-    await starknetTokenBridge.withdraw(amount, receiverL1);
+    await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
   }
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {
