@@ -18,7 +18,7 @@ export const getMessageHash = (
   );
 };
 
-export const decodeBSONFile = (file: string, docLength: number, docIndex = 0) => {
+export const decodeBSONFile = (file: string, docLength: number, docIndex: number) => {
   let withdrawals: WithdrawalDoc[] = [];
   BSON.deserializeStream(fs.readFileSync(file), 0, docLength, withdrawals, docIndex, {
     promoteBuffers: true,

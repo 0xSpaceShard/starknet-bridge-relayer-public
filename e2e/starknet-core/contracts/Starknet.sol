@@ -1183,7 +1183,13 @@ contract Starknet is
 
     function addMessage(bytes32[] memory msgHashes) external {
         for (uint256 i = 0; i < msgHashes.length; i++) {
-            l2ToL1Messages()[msgHashes[i]] = 1;
+            l2ToL1Messages()[msgHashes[i]] += 1;
+        }
+    }
+
+    function deleteMessage(bytes32[] memory msgHashes) external {
+        for (uint256 i = 0; i < msgHashes.length; i++) {
+            l2ToL1Messages()[msgHashes[i]] = 0;
         }
     }
 
