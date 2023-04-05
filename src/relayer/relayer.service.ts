@@ -304,7 +304,7 @@ export class RelayerService {
     return await this.callWithRetry({
       callback: async () => {
         let lastProcessedBlockNumber = await this.getLastProcessedBlock();
-        const lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
+        let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
 
         this.logger.log('Check can process withdrawals', {
@@ -312,6 +312,8 @@ export class RelayerService {
           toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
           stateBlockNumber,
         });
+
+        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber
 
         return {
           fromBlock: lastProcessedBlockNumber,
