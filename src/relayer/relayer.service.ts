@@ -15,7 +15,7 @@ import { callWithRetry, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { getMessageHash } from './utils';
-import { ethers } from 'ethers';
+import { ethers, BigNumber } from 'ethers';
 
 @Injectable()
 export class RelayerService {
@@ -220,12 +220,21 @@ export class RelayerService {
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
     const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
-    // Check which withdrawal can be processes
+    
+    // Cache the response to avoid duplicate hashes.
+    const cache = {};
+    for (let i = 0; i < multicallResponse.returnData.length; i++) {
+      cache[allMulticallRequest[i].callData] = BigNumber.from(multicallResponse.returnData[i]).toNumber();
+    }
+
     for (let i = 0; i < multicallResponse.returnData.length; i++) {
       const txReturnData = multicallResponse.returnData[i];
 
       // If the `txReturnData` is ZERO it means the messages was already consumed.
       if (txReturnData == ZeroBytes) continue;
+      if (cache[allMulticallRequest[i].callData] - 1 < 0) continue;
+      cache[allMulticallRequest[i].callData] -= 1;
+
       const withdrawal = withdrawals[i];
       const target = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
 
