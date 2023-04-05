@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { IStorage } from 'storage/storage.interface';
 import { InjectModel } from '@nestjs/mongoose';
 import { ObjectId } from 'mongodb';
@@ -8,7 +8,7 @@ import { RelayerMetadata } from 'storage/dto/relayer';
 import { RelayerMetadataDocument, RelayerMetadataSchema } from './schemas/relayer-metadata';
 
 @Injectable()
-export class MongoService implements IStorage {
+export class MongoService implements IStorage, OnModuleDestroy {
   constructor(@InjectModel(RelayerMetadataSchema.name) private relayerMetadataModel: Model<RelayerMetadataDocument>) {}
 
   async updateProcessedBlock(newBlockNumber: number) {
@@ -24,7 +24,11 @@ export class MongoService implements IStorage {
     const res = await this.relayerMetadataModel.findOne(query).exec();
     return {
       id: relayerMetadataId,
-      blockNumber: res.blockNumber,
+      blockNumber: res?.blockNumber,
     };
+  }
+
+  async onModuleDestroy() {
+    await this.relayerMetadataModel.db.close();
   }
 }

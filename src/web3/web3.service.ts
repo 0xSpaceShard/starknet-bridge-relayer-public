@@ -14,6 +14,7 @@ import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
 import { ContractAddress, MulticallRequest, Provider } from './web3.interface';
 import * as StarknetCoreABI from './abis/StarknetCore.json';
+import * as StarknetTokenBridgeABI from './abis/StarknetTokenBridge.json';
 
 @Injectable()
 export class Web3Service {
@@ -46,7 +47,7 @@ export class Web3Service {
 
   async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {
     const starknetTokenBridge = await this.getStarknetTokenBridgeContract(bridgeAddress);
-    await starknetTokenBridge['withdraw(uint256,address)'].call(this, [receiverL1, amount]);
+    await starknetTokenBridge.withdraw(amount, receiverL1);
   }
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {
@@ -64,15 +65,19 @@ export class Web3Service {
     return iface.encodeFunctionData(functionName, params);
   };
 
+  encodeBridgeToken = (functionName: string, params: any[]): string => {
+    let iface = new ethers.utils.Interface(StarknetTokenBridgeABI);
+    return iface.encodeFunctionData(functionName, params);
+  };
+
   async getProvider() {
     const providerURLs: Array<Provider> = getProviderURLs(this.configService);
     for (let i = 0; i < providerURLs.length; i++) {
       try {
         const provider = new ethers.providers.JsonRpcProvider(providerURLs[i].url);
         await provider.getBlockNumber();
-        return provider;
+        return new ethers.Wallet(this.configService.get('PRIVATE_KEY'), provider);
       } catch (error: any) {
-        console.log(`Provider: ${providerURLs[i].name} not available`, error);
         continue;
       }
     }

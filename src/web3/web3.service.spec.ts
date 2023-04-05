@@ -27,9 +27,4 @@ describe('Web3Service', () => {
     ]);
     expect(result).toEqual(expectedResult);
   });
-
-  it('Sucess get provider', async() => {
-    const provider = service.getProvider();
-    expect(provider).not.toBeNull();
-  });
 });

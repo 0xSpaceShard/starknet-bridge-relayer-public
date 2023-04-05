@@ -20,4 +20,12 @@ export const Web3ServiceMock = {
   callWithdrawMulticall: jest.fn(() => {
     return {};
   }),
+  getAddresses: jest.fn(() => {
+    const web3Service = new Web3Service(new ConfigService());
+    return web3Service.getAddresses()
+  }),
+  encodeBridgeToken: jest.fn((fnName: string, callData: string[]) => {
+    const web3Service = new Web3Service(new ConfigService());
+    return web3Service.encodeBridgeToken(fnName, callData);
+  }),
 };

@@ -6,16 +6,17 @@ import { ConfigService } from 'common/config';
 import { Web3ServiceMock } from './__mocks__/Web3Service_mock';
 import { MongoServiceMock, MongoServiceMockData } from './__mocks__/MongoService_mock';
 import { IndexerService } from 'indexer/indexer.service';
-import { IndexerServiceMock, NumberOfTimesReceivedDataFromIndexerMock } from './__mocks__/IndexerService_mock';
+import { IndexerServiceMock } from './__mocks__/IndexerService_mock';
 import {
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
   fromBlockNumberMock,
   toBlockNumberMock,
-  withdrawalsResponseMock,
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
+import { getMessageHash } from './utils';
+import { ADDRESSES } from 'web3/web3.constants';
 
 describe.only('RelayerService', () => {
   let service: RelayerService;
@@ -67,12 +68,12 @@ describe.only('RelayerService', () => {
   });
 
   it('Success get the message hash to consume on L1', () => {
-    const expectedHash = '0x09af67e5cf9937ebef036cbc33dad018a89ceb14c14928fe38823cf548a7180b';
+    const expectedHash = '0x302d070309d4762649be301e2b9349809a2d4e5d9e045493bd14056c93cf895d';
     const l2BridgeAddress = '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b';
     const l1BridgeAddress = '0xf29aE3446Ce4688fCc792b232C21D1B9581E7baC';
     const l1ReceiverAddress = '0x0000000000000000000000000000000000000001';
     const amount = '100';
-    const messagehash = service.getMessageHash(l2BridgeAddress, l1BridgeAddress, l1ReceiverAddress, amount);
+    const messagehash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1ReceiverAddress, amount);
     expect(messagehash).toEqual(expectedHash);
   });
 
@@ -80,9 +81,33 @@ describe.only('RelayerService', () => {
     expect(await service.getLastProcessedBlock()).toEqual(MongoServiceMockData.getLastProcessedBlock.blockNumber);
   });
 
-  it('Success getRequestWithdrawalAtBlocks', async () => {
+  it('Success canProcessWithdrawals', async () => {
+    const res = await service.canProcessWithdrawals()
+    expect(res.status).toEqual(fromBlockNumberMock < toBlockNumberMock);
+    expect(res.lastProcessedBlockNumber).toEqual(fromBlockNumberMock);
+    expect(res.stateBlockNumber).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when pagination', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-1` inside __mocks__
     const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
-    expect(res.withdrawals.length).toEqual(withdrawalsResponseMock.length * NumberOfTimesReceivedDataFromIndexerMock);
+    expect(res.withdrawals.length).toEqual(1100);
+    expect(res.fromBlock).toEqual(fromBlockNumberMock);
+    expect(res.toBlock).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when no pagination', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-2` inside __mocks__
+    const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
+    expect(res.withdrawals.length).toEqual(100);
+    expect(res.fromBlock).toEqual(fromBlockNumberMock);
+    expect(res.toBlock).toEqual(toBlockNumberMock);
+  });
+
+  it('Success getRequestWithdrawalAtBlocks, when no transactions', async () => {
+    // Check the file `IndexerServiceMock->getWithdraws->TestCase-3` inside __mocks__
+    const res = await service.getRequestWithdrawalAtBlocks(fromBlockNumberMock, toBlockNumberMock);
+    expect(res.withdrawals.length).toEqual(0);
     expect(res.fromBlock).toEqual(fromBlockNumberMock);
     expect(res.toBlock).toEqual(toBlockNumberMock);
   });
@@ -99,7 +124,7 @@ describe.only('RelayerService', () => {
       const req = res[i];
       const l1BridgeAddress =
         l2BridgeAddressToL1Addresses[withdrawalAtBlocksResponse.withdrawals[i].bridgeAddress].l1BridgeAddress;
-      expect(req.target).toEqual(l1BridgeAddress);
+      expect(req.target).toEqual(ADDRESSES['goerli'].starknetCore);
       // Example: calldata = 0xa46efaf3c96dbee3b8d1478353813a10f1c9b396c187e8fa71cd80902b5005edb62d9b28
       // a46efaf3 => function selector => 4Bytes
       // messageHash => c96dbee3b8d1478353813a10f1c9b396c187e8fa71cd80902b5005edb62d9b28 => 32Bytes
@@ -118,6 +143,7 @@ describe.only('RelayerService', () => {
       allMulticallRequests,
     );
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
       viewMulticallResponse,
       allMulticallRequests,
     );
@@ -137,6 +163,7 @@ describe.only('RelayerService', () => {
       allMulticallRequests,
     );
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
       viewMulticallResponse,
       allMulticallRequests,
     );
@@ -145,9 +172,9 @@ describe.only('RelayerService', () => {
   });
 
   it('Success processWithdrawals', async () => {
+    // This function will loop 2 times
     const res = await service.processWithdrawals(fromBlockNumberMock, toBlockNumberMock);
-    expect(res.currentFromBlockNumber).toEqual(toBlockNumberMock);
-    // Check the file `IndexerServiceMock->getWithdraws->TestCase-5` inside __mocks__
+    expect(res.currentFromBlockNumber).toEqual(fromBlockNumberMock + 50);
     expect(res.totalWithdrawals).toEqual(10);
     expect(res.totalWithdrawalsProcessed).toEqual(4);
   });
