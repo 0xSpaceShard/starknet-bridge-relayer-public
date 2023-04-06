@@ -1,6 +1,6 @@
 export interface Withdrawal {
   __typename: string;
-  blockHeight: string;
+  blockHeight: number;
   bridgeAddress: string;
   l1Recipient: string;
   amount: string;
@@ -13,4 +13,8 @@ export interface Transfer {
   from_: string;
   to: string;
   value: string;
+}
+
+export interface LastIndexedBlock {
+  blockHeight: number;
 }

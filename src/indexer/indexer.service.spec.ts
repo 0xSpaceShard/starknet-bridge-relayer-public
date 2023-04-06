@@ -28,4 +28,9 @@ describe('IndexerService', () => {
     const res = await service.getWithdraws(1000, 0, 300000, 310000);
     expect(res.length).toEqual(getWithdrawalsMockResponse.withdraw.length);
   });
+
+  it('Success get withdrawals', async () => {
+    const res = await service.getWithdraws(1000, 0, 300000, 310000);
+    expect(res.length).toEqual(getWithdrawalsMockResponse.withdraw.length);
+  });
 });
