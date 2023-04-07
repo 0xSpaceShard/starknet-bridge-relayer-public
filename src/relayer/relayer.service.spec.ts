@@ -6,7 +6,8 @@ import { ConfigService } from 'common/config';
 import { IndexerService } from 'indexer/indexer.service';
 import { totalWithdrawalMock } from './__mocks__/IndexerService_mock';
 import {
-  canConsumeMessageOnL1MulticallView3Response,
+  canConsumeMessageOnL1MulticallView3NoTrustModeResponse,
+  canConsumeMessageOnL1MulticallView3TrustModeResponse,
   canConsumeMessageOnL1MulticallViewResponse,
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
   withdrawalsResponseMock,
@@ -242,7 +243,8 @@ describe.only('RelayerService', () => {
     }
   });
 
-  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is duplicate message hash', async () => {
+  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is duplicate message hash in trust mode', async () => {
+    process.env.TRUSTED_MODE = 'true';
     const fromBlock = 100;
     const toBlock = 150;
     const withdrawals = withdrawalsResponseMock3;
@@ -254,7 +256,7 @@ describe.only('RelayerService', () => {
     jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
       Promise.resolve({
         blockNumber: BigNumber.from('100'),
-        returnData: canConsumeMessageOnL1MulticallView3Response.returnData,
+        returnData: canConsumeMessageOnL1MulticallView3TrustModeResponse.returnData,
       } as any),
     );
 
@@ -263,7 +265,7 @@ describe.only('RelayerService', () => {
     );
 
     for (let i = 0; i < viewMulticallResponse.returnData.length; i++) {
-      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallView3Response.returnData[i]);
+      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallView3TrustModeResponse.returnData[i]);
     }
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
@@ -280,6 +282,47 @@ describe.only('RelayerService', () => {
       }
     }
     expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(2);
+  });
+
+  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is duplicate message hash in no trust mode', async () => {
+    process.env.TRUSTED_MODE = 'false';
+    const fromBlock = 100;
+    const toBlock = 150;
+    const withdrawals = withdrawalsResponseMock3;
+    jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
+    const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
+
+    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+
+    jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
+      Promise.resolve({
+        blockNumber: BigNumber.from('100'),
+        returnData: canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData,
+      } as any),
+    );
+
+    const viewMulticallResponse: MulticallResponse = await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(
+      allMulticallRequests,
+    );
+
+    for (let i = 0; i < viewMulticallResponse.returnData.length; i++) {
+      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData[i]);
+    }
+
+    const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
+      viewMulticallResponse,
+      allMulticallRequests,
+    );
+
+    const withdrawalsCanBeConsumedList: Array<Withdrawal> = [];
+    expect(viewMulticallResponse.returnData.length).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData.length);
+    for (let i = 0; i < withdrawalAtBlocksResponse.withdrawals.length; i++) {
+      if (viewMulticallResponse.returnData[i] == ethers.utils.hexZeroPad('0x1', 32)) {
+        withdrawalsCanBeConsumedList.push(withdrawalAtBlocksResponse.withdrawals[i]);
+      }
+    }
+    expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(1);
   });
 
   it('Success processWithdrawals', async () => {

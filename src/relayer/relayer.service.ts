@@ -220,7 +220,7 @@ export class RelayerService {
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
     const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
-    
+
     // Cache the response to avoid duplicate hashes.
     const cache = {};
     for (let i = 0; i < multicallResponse.returnData.length; i++) {
@@ -313,7 +313,7 @@ export class RelayerService {
           stateBlockNumber,
         });
 
-        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber
+        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber;
 
         return {
           fromBlock: lastProcessedBlockNumber,
