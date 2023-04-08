@@ -307,17 +307,19 @@ export class RelayerService {
         let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
 
+        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber;
+        const toBlock = Math.min(lastIndexedBlock, stateBlockNumber);
+        const fromBlock = Math.min(lastProcessedBlockNumber, toBlock);
+
         this.logger.log('Check can process withdrawals', {
-          fromBlock: lastProcessedBlockNumber,
-          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          fromBlock,
+          toBlock,
           stateBlockNumber,
         });
 
-        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber;
-
         return {
-          fromBlock: lastProcessedBlockNumber,
-          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          fromBlock,
+          toBlock,
           stateBlockNumber,
         };
       },
