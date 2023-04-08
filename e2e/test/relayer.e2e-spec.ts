@@ -11,6 +11,7 @@ import { RelayerModule } from '../../src/relayer/relayer.module';
 import { ContractAddress } from '../../src/web3/web3.interface';
 import { ConfigService } from '../../src/common/config';
 import { MongoService } from '../../src/storage/mongo/mongo.service';
+import { IndexerService } from 'indexer/indexer.service';
 
 dotenv.config();
 jest.useRealTimers();
@@ -25,6 +26,7 @@ describe('Relayer (e2e)', () => {
   let coreAddresses: ContractAddress;
   let provider: ethers.providers.JsonRpcProvider;
   let starknet: Starknet;
+  let indexerService: IndexerService;
 
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -33,6 +35,7 @@ describe('Relayer (e2e)', () => {
     relayerService = moduleFixture.get<RelayerService>(RelayerService);
     configService = moduleFixture.get<ConfigService>(ConfigService);
     mongoService = moduleFixture.get<MongoService>(MongoService);
+    indexerService = moduleFixture.get<IndexerService>(IndexerService);
 
     provider = new ethers.providers.JsonRpcProvider('http://0.0.0.0:8545');
     const privateKey = process.env.PRIVATE_KEY;
@@ -48,11 +51,11 @@ describe('Relayer (e2e)', () => {
     await moduleFixture.close();
   });
 
-  it('Test Relayer with all valid transactions', async () => {
+  it('Consume valid transactions', async () => {
     const fromBlock = 786000;
-    const toBlock = 786400;
-    const stateBlock = 786450;
-    const docs = 588;
+    const toBlock = 786200;
+    const stateBlock = 786250;
+    const docs = 356;
 
     await starknet.setStateBlockNumber(stateBlock);
 
@@ -121,5 +124,17 @@ describe('Relayer (e2e)', () => {
       expect(userBalancesAfter[i].sub(userBalancesBefore[i])).toEqual(userExpectedAmountToReceive[usersAddresses[i]]);
     }
     expect((await mongoService.getLastProcessedBlock()).blockNumber).toEqual(toBlock);
+  });
+
+  it('Check if canProcessWithdrawals', async () => {
+    const stateBlock = 787050;
+    const fromBlock = 786000;
+    await starknet.setStateBlockNumber(stateBlock);
+    await mongoService.updateProcessedBlock(786000);
+    const toBlock = await indexerService.getLastIndexedBlock();
+    const res = await relayerService.canProcessWithdrawals();
+    expect(res.fromBlock).toEqual(fromBlock);
+    expect(res.toBlock).toEqual(toBlock);
+    expect(res.stateBlockNumber).toEqual(stateBlock);
   });
 });
