@@ -89,7 +89,7 @@ export class RelayerService {
 
       // Get Withdrawals from the indexer
       const requestWithdrawalAtBlocks = await this.getRequestWithdrawalAtBlocks(
-        currentFromBlockNumber,
+        currentFromBlockNumber + 1,
         currentToBlockNumber,
       );
 
