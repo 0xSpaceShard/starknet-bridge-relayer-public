@@ -84,7 +84,7 @@ describe('Relayer (e2e)', () => {
         const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
         allMessageHashes.push(msgHash);
 
-        if (Math.floor(Math.random() * 100) > 50) {
+        if (Math.floor(Math.random() * 100) > 10) {
           validMessageHashes.push(msgHash);
           userBalancesBefore.push(await provider.getBalance(l1Recipient));
           usersAddresses.push(l1Recipient);
