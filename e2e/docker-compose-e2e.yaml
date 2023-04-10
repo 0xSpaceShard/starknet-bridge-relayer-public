@@ -1,0 +1,39 @@
+version: '3.7'
+
+services:
+  mongo:
+    image: mongo:latest
+    restart: always
+    ports:
+      - 27017:27017
+
+  indexer:
+    image: shardastronaut/stargate-bridge-indexer:latest
+    restart: always
+    environment:
+      SERVER_URL: ${SERVER_URL}
+      MONGO_URL: mongodb://mongo:27017
+      ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
+      DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
+      GRAPHQL_URL: ${GRAPHQL_URL}
+      GRAPHQL_PORT: ${GRAPHQL_PORT}
+      BUILD_ENV: ${BUILD_ENV}
+      FIRST_BLOCK: ${FIRST_BLOCK}
+      LOGLEVEL: "debug"
+    ports:
+      - 8080:8080
+    depends_on:
+      - mongo
+    entrypoint: ["/bin/bash", "-c", "poetry run indexer graphql-start"]
+
+  hardhat:
+    build:
+      context: ./starknet-core
+    restart: always
+    environment:
+      RPC_URL: ${RPC_URL}
+      NETWORK_ID: ${NETWORK_ID}
+    ports:
+      - 8545:8545
+    entrypoint: ['/bin/bash', "-c", 'scripts/start.sh']
+    

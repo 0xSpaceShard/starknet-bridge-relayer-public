@@ -89,7 +89,7 @@ export class RelayerService {
 
       // Get Withdrawals from the indexer
       const requestWithdrawalAtBlocks = await this.getRequestWithdrawalAtBlocks(
-        currentFromBlockNumber,
+        currentFromBlockNumber + 1,
         currentToBlockNumber,
       );
 
@@ -220,7 +220,7 @@ export class RelayerService {
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
     const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
-    
+
     // Cache the response to avoid duplicate hashes.
     const cache = {};
     for (let i = 0; i < multicallResponse.returnData.length; i++) {
@@ -307,17 +307,19 @@ export class RelayerService {
         let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
 
+        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber;
+        const toBlock = Math.min(lastIndexedBlock, stateBlockNumber);
+        const fromBlock = Math.min(lastProcessedBlockNumber, toBlock);
+
         this.logger.log('Check can process withdrawals', {
-          fromBlock: lastProcessedBlockNumber,
-          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          fromBlock,
+          toBlock,
           stateBlockNumber,
         });
 
-        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber
-
         return {
-          fromBlock: lastProcessedBlockNumber,
-          toBlock: Math.min(lastIndexedBlock, stateBlockNumber),
+          fromBlock,
+          toBlock,
           stateBlockNumber,
         };
       },
