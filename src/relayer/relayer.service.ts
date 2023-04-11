@@ -99,7 +99,7 @@ export class RelayerService {
           requestWithdrawalAtBlocks.withdrawals,
         );
         // Check which message hashs exists on L1.
-        const viewMulticallResponse: MulticallResponse = await this.filterWhichMessagesCanBeConsumeOnL1MulticallView(
+        const viewMulticallResponse: Array<MulticallResponse> = await this.filterWhichMessagesCanBeConsumeOnL1MulticallView(
           allMulticallRequests,
         );
         // Filter the valid messages that can be consumed on L1.
@@ -215,7 +215,7 @@ export class RelayerService {
 
   getListOfValidMessagesToConsumedOnL1(
     withdrawals: Array<Withdrawal>,
-    multicallResponse: MulticallResponse,
+    multicallResponse: Array<MulticallResponse>,
     allMulticallRequest: Array<MulticallRequest>,
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
@@ -223,12 +223,12 @@ export class RelayerService {
 
     // Cache the response to avoid duplicate hashes.
     const cache = {};
-    for (let i = 0; i < multicallResponse.returnData.length; i++) {
-      cache[allMulticallRequest[i].callData] = BigNumber.from(multicallResponse.returnData[i]).toNumber();
+    for (let i = 0; i < multicallResponse.length; i++) {
+      cache[allMulticallRequest[i].callData] = BigNumber.from(multicallResponse[i].returnData).toNumber();
     }
 
-    for (let i = 0; i < multicallResponse.returnData.length; i++) {
-      const txReturnData = multicallResponse.returnData[i];
+    for (let i = 0; i < multicallResponse.length; i++) {
+      const txReturnData = multicallResponse[i].returnData;
 
       // If the `txReturnData` is ZERO it means the messages was already consumed.
       if (txReturnData == ZeroBytes) continue;
@@ -283,7 +283,7 @@ export class RelayerService {
 
   async filterWhichMessagesCanBeConsumeOnL1MulticallView(
     allMulticallRequests: Array<MulticallRequest>,
-  ): Promise<MulticallResponse> {
+  ): Promise<Array<MulticallResponse>> {
     return await this.callWithRetry({
       callback: async () => {
         const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
@@ -307,7 +307,7 @@ export class RelayerService {
         let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
 
-        lastIndexedBlock = lastIndexedBlock ? lastIndexedBlock : lastProcessedBlockNumber;
+        lastIndexedBlock = lastIndexedBlock !== undefined ? lastIndexedBlock : lastProcessedBlockNumber;
         const toBlock = Math.min(lastIndexedBlock, stateBlockNumber);
         const fromBlock = Math.min(lastProcessedBlockNumber, toBlock);
 

@@ -21,6 +21,6 @@ export interface MulticallRequest {
 }
 
 export interface MulticallResponse {
-  blockNumber: BigNumber;
-  returnData: string[];
+  success: boolean;
+  returnData: string;
 }

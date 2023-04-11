@@ -45,7 +45,7 @@ export class Web3Service {
 
   async callWithdrawMulticall(multicallRequests: Array<MulticallRequest>) {
     const multicall = await this.getMulticallContract();
-    return await multicall.aggregate(multicallRequests, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
+    return await multicall.tryAggregate(false, multicallRequests, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
   }
 
   async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {
@@ -55,7 +55,7 @@ export class Web3Service {
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {
     const multicallView = await this.getMulticallViewContract();
-    return await multicallView.aggregate(multicallRequests);
+    return await multicallView.tryAggregate(false, multicallRequests);
   }
 
   async getStateBlockNumber(): Promise<BigNumber> {
