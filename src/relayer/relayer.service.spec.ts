@@ -201,19 +201,15 @@ describe.only('RelayerService', () => {
 
     const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
-    jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
-      Promise.resolve({
-        blockNumber: BigNumber.from('100'),
-        returnData: canConsumeMessageOnL1MulticallViewResponse.returnData,
-      } as any),
-    );
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
 
-    const viewMulticallResponse: MulticallResponse = await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(
-      allMulticallRequests,
-    );
+    const viewMulticallResponse: Array<MulticallResponse> =
+      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
 
-    for (let i = 0; i < viewMulticallResponse.returnData.length; i++) {
-      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallViewResponse.returnData[i]);
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      expect(viewMulticallResponse[i].returnData).toEqual(canConsumeMessageOnL1MulticallViewResponse[i].returnData);
     }
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
@@ -223,9 +219,9 @@ describe.only('RelayerService', () => {
     );
 
     const withdrawalsCanBeConsumedList: Array<Withdrawal> = [];
-    expect(viewMulticallResponse.returnData.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
+    expect(viewMulticallResponse.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
     for (let i = 0; i < withdrawalAtBlocksResponse.withdrawals.length; i++) {
-      if (viewMulticallResponse.returnData[i] == ethers.utils.hexZeroPad('0x1', 32)) {
+      if (viewMulticallResponse[i].returnData == ethers.utils.hexZeroPad('0x1', 32)) {
         withdrawalsCanBeConsumedList.push(withdrawalAtBlocksResponse.withdrawals[i]);
       }
     }
@@ -253,19 +249,17 @@ describe.only('RelayerService', () => {
 
     const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
-    jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
-      Promise.resolve({
-        blockNumber: BigNumber.from('100'),
-        returnData: canConsumeMessageOnL1MulticallView3TrustModeResponse.returnData,
-      } as any),
-    );
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse as any));
 
-    const viewMulticallResponse: MulticallResponse = await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(
-      allMulticallRequests,
-    );
+    const viewMulticallResponse: Array<MulticallResponse> =
+      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
 
-    for (let i = 0; i < viewMulticallResponse.returnData.length; i++) {
-      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallView3TrustModeResponse.returnData[i]);
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      expect(viewMulticallResponse[i].returnData).toEqual(
+        canConsumeMessageOnL1MulticallView3TrustModeResponse[i].returnData,
+      );
     }
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
@@ -275,9 +269,9 @@ describe.only('RelayerService', () => {
     );
 
     const withdrawalsCanBeConsumedList: Array<Withdrawal> = [];
-    expect(viewMulticallResponse.returnData.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
+    expect(viewMulticallResponse.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
     for (let i = 0; i < withdrawalAtBlocksResponse.withdrawals.length; i++) {
-      if (viewMulticallResponse.returnData[i] == ethers.utils.hexZeroPad('0x1', 32)) {
+      if (viewMulticallResponse[i].returnData == ethers.utils.hexZeroPad('0x1', 32)) {
         withdrawalsCanBeConsumedList.push(withdrawalAtBlocksResponse.withdrawals[i]);
       }
     }
@@ -294,19 +288,17 @@ describe.only('RelayerService', () => {
 
     const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
-    jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
-      Promise.resolve({
-        blockNumber: BigNumber.from('100'),
-        returnData: canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData,
-      } as any),
-    );
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3NoTrustModeResponse as any));
 
-    const viewMulticallResponse: MulticallResponse = await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(
-      allMulticallRequests,
-    );
+    const viewMulticallResponse: Array<MulticallResponse> =
+      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
 
-    for (let i = 0; i < viewMulticallResponse.returnData.length; i++) {
-      expect(viewMulticallResponse.returnData[i]).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData[i]);
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      expect(viewMulticallResponse[i].returnData).toEqual(
+        canConsumeMessageOnL1MulticallView3NoTrustModeResponse[i].returnData,
+      );
     }
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
@@ -316,9 +308,9 @@ describe.only('RelayerService', () => {
     );
 
     const withdrawalsCanBeConsumedList: Array<Withdrawal> = [];
-    expect(viewMulticallResponse.returnData.length).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.returnData.length);
-    for (let i = 0; i < withdrawalAtBlocksResponse.withdrawals.length; i++) {
-      if (viewMulticallResponse.returnData[i] == ethers.utils.hexZeroPad('0x1', 32)) {
+    expect(viewMulticallResponse.length).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.length);
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      if (viewMulticallResponse[i].returnData == ethers.utils.hexZeroPad('0x1', 32)) {
         withdrawalsCanBeConsumedList.push(withdrawalAtBlocksResponse.withdrawals[i]);
       }
     }
@@ -342,12 +334,9 @@ describe.only('RelayerService', () => {
         }),
       );
 
-      jest.spyOn(web3Service, 'canConsumeMessageOnL1MulticallView').mockReturnValue(
-        Promise.resolve({
-          blockNumber: BigNumber.from('100'),
-          returnData: canConsumeMessageOnL1MulticallViewResponse.returnData,
-        } as any),
-      );
+      jest
+        .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+        .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
 
       jest.spyOn(mongoService, 'updateProcessedBlock').mockImplementation();
 
