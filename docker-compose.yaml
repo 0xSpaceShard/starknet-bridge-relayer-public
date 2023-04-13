@@ -2,34 +2,39 @@ version: '3.7'
 
 services:
   mongo:
-    image: mongo:latest
+    image: mongo:4.4
+    container_name: starkgate-bridge-mongo
     restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     ports:
-      - 27017:27017
+      - ${MONGO_PORT}:27017
+    volumes:
+      - mongo-data:/data/db
 
   indexer:
-    image: shardastronaut/stargate-bridge-indexer:latest
+    image: shardlabs/starkgate-bridge-indexer:latest
+    container_name: starkgate-bridge-indexer
     restart: always
     environment:
       SERVER_URL: ${SERVER_URL}
-      MONGO_URL: mongodb://mongo:27017
+      MONGO_URL: ${MONGO_URL}
       ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
       DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
       GRAPHQL_URL: ${GRAPHQL_URL}
       GRAPHQL_PORT: ${GRAPHQL_PORT}
       BUILD_ENV: ${BUILD_ENV}
       FIRST_BLOCK: ${FIRST_BLOCK}
-      LOGLEVEL: ${LOG_LEVEL}
+      LOGLEVEL: "${LOG_LEVEL}"
     ports:
-      - 8080:8080
+      - ${GRAPHQL_PORT}:${GRAPHQL_PORT}
     depends_on:
       - mongo
-    entrypoint: ['/bin/bash', '-c', 'poetry run indexer graphql-start']
 
-  relayer-test:
-    build:
-      context: ..
-      target: development
+  relayer:
+    image: shardlabs/starkgate-bridge-relayer:latest
+    container_name: starkgate-bridge-relayer
     restart: always
     environment:
       RELAYER_PORT: ${RELAYER_PORT}
@@ -50,19 +55,11 @@ services:
       RELAYER_SLEEP_AFTER_FAIL_EXEC: ${RELAYER_SLEEP_AFTER_FAIL_EXEC}
       TRUSTED_MODE: ${TRUSTED_MODE}
       RPC_URL: ${RPC_URL}
-    command: ['/bin/bash', '-c', 'sleep 2000']
+    ports:
+      - '${RELAYER_PORT}:${RELAYER_PORT}'
     depends_on:
       - mongo
-      - hardhat
       - indexer
 
-  hardhat:
-    build:
-      context: ./starknet-core
-    restart: always
-    environment:
-      RPC_URL: ${RPC_URL}
-      NETWORK_ID: ${NETWORK_ID}
-    ports:
-      - 8545:8545
-    entrypoint: ['/bin/bash', '-c', 'scripts/start.sh']
+volumes:
+  mongo-data:
