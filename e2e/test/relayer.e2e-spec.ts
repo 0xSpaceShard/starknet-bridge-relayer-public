@@ -3,7 +3,7 @@ import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
 import { l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
 import { Starknet, Starknet__factory } from '../starknet-core/typechain-types';
-import { ADDRESSES } from '../../src/web3/web3.constants';
+import { ADDRESSES, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RelayerService } from '../../src/relayer/relayer.service';
@@ -11,7 +11,8 @@ import { RelayerModule } from '../../src/relayer/relayer.module';
 import { ContractAddress } from '../../src/web3/web3.interface';
 import { ConfigService } from '../../src/common/config';
 import { MongoService } from '../../src/storage/mongo/mongo.service';
-import { IndexerService } from 'indexer/indexer.service';
+import { IndexerService } from '../../src/indexer/indexer.service';
+import { Web3Service } from '../../src/web3/web3.service';
 
 dotenv.config();
 jest.useRealTimers();
@@ -27,6 +28,7 @@ describe('Relayer (e2e)', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let starknet: Starknet;
   let indexerService: IndexerService;
+  let web3Service: Web3Service;
 
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -36,6 +38,7 @@ describe('Relayer (e2e)', () => {
     configService = moduleFixture.get<ConfigService>(ConfigService);
     mongoService = moduleFixture.get<MongoService>(MongoService);
     indexerService = moduleFixture.get<IndexerService>(IndexerService);
+    web3Service = moduleFixture.get<Web3Service>(Web3Service);
 
     provider = new ethers.providers.JsonRpcProvider('http://hardhat:8545');
     const privateKey = process.env.PRIVATE_KEY;
@@ -140,5 +143,26 @@ describe('Relayer (e2e)', () => {
     expect(res.fromBlock).toEqual(fromBlock);
     expect(res.toBlock).toEqual(toBlock);
     expect(res.stateBlockNumber).toEqual(stateBlock);
+  });
+
+  it('calculate gas cost', async () => {
+    const msgHash = '0x0e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be';
+    await starknet.addMessage([msgHash, msgHash]);
+    expect((await starknet.l2ToL1Messages(msgHash)).toNumber()).not.toEqual(0);
+    const hashes = [
+      {
+        callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
+        target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
+      },
+      {
+        callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
+        target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
+      },
+    ]
+    const tx = await web3Service.callWithdrawMulticall(hashes);
+
+    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL * hashes.length);
+    const receipt = await provider.getTransactionReceipt(tx.hash);
+    expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
   });
 });
