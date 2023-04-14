@@ -19,3 +19,5 @@ export const getProviderURLs = (configs: ConfigService): Array<Provider> => {
     { name: 'infura', url: configs.get('INFURA_RPC_URL') },
   ];
 };
+
+export const GAS_LIMIT_PER_WITHDRAWAL = 60000
