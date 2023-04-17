@@ -20,4 +20,5 @@ export const getProviderURLs = (configs: ConfigService): Array<Provider> => {
   ];
 };
 
-export const GAS_LIMIT_PER_WITHDRAWAL = 60000
+export const GAS_LIMIT_PER_WITHDRAWAL = 100000
+export const GAS_LIMIT_MULTIPLE_WITHDRAWAL = 50000

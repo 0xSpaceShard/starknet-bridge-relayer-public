@@ -3,7 +3,7 @@ import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
 import { l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
 import { Starknet, Starknet__factory } from '../starknet-core/typechain-types';
-import { ADDRESSES, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
+import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RelayerService } from '../../src/relayer/relayer.service';
@@ -161,7 +161,7 @@ describe('Relayer (e2e)', () => {
     ]
     const tx = await web3Service.callWithdrawMulticall(hashes);
 
-    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL * hashes.length);
+    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL + GAS_LIMIT_MULTIPLE_WITHDRAWAL * hashes.length);
     const receipt = await provider.getTransactionReceipt(tx.hash);
     expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
   });
