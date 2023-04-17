@@ -48,7 +48,7 @@ export class Web3Service {
     const length = multicallRequests.length;
     return await multicall.tryAggregate(false, multicallRequests, {
       maxPriorityFeePerGas: this.maxPriorityFeePerGas,
-      gasLimit: GAS_LIMIT_PER_WITHDRAWAL + length === 1 ? 0 : GAS_LIMIT_MULTIPLE_WITHDRAWAL * length,
+      gasLimit: GAS_LIMIT_PER_WITHDRAWAL + (length === 1 ? 0 : GAS_LIMIT_MULTIPLE_WITHDRAWAL * length),
     });
   }
 

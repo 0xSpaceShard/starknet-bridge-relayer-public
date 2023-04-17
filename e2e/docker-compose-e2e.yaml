@@ -55,6 +55,8 @@ services:
       - mongo
       - hardhat
       - indexer
+    volumes:
+      - ..:/app
 
   hardhat:
     build:
