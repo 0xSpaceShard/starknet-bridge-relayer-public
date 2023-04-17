@@ -9,7 +9,7 @@ import {
   MulticallView__factory,
   MulticallView,
 } from './generated';
-import { ADDRESSES, GAS_LIMIT_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
+import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
 import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
 import { ContractAddress, MulticallRequest, Provider } from './web3.interface';
@@ -45,9 +45,10 @@ export class Web3Service {
 
   async callWithdrawMulticall(multicallRequests: Array<MulticallRequest>) {
     const multicall = await this.getMulticallContract();
+    const length = multicallRequests.length;
     return await multicall.tryAggregate(false, multicallRequests, {
       maxPriorityFeePerGas: this.maxPriorityFeePerGas,
-      gasLimit: multicallRequests.length * GAS_LIMIT_PER_WITHDRAWAL,
+      gasLimit: GAS_LIMIT_PER_WITHDRAWAL + length === 1 ? 0 : GAS_LIMIT_MULTIPLE_WITHDRAWAL * length,
     });
   }
 
