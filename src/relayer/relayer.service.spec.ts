@@ -192,7 +192,7 @@ describe.only('RelayerService', () => {
     }
   });
 
-  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is single message hash', async () => {
+  it('Success getListOfL2ToL1MessagesResult when there is single message hash', async () => {
     const fromBlock = 100;
     const toBlock = 150;
     const withdrawals = withdrawalsResponseMock;
@@ -205,8 +205,10 @@ describe.only('RelayerService', () => {
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
       .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
 
-    const viewMulticallResponse: Array<MulticallResponse> =
-      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
+    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      250,
+    );
 
     for (let i = 0; i < viewMulticallResponse.length; i++) {
       expect(viewMulticallResponse[i].returnData).toEqual(canConsumeMessageOnL1MulticallViewResponse[i].returnData);
@@ -239,7 +241,42 @@ describe.only('RelayerService', () => {
     }
   });
 
-  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is duplicate message hash in trust mode', async () => {
+  it('Success getListOfL2ToL1MessagesResult limit', async () => {
+    const fromBlock = 100;
+    const toBlock = 150;
+    jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawalsResponseMock));
+    const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
+
+    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+
+    // When limit = 2
+    let limit = 2;
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(0, limit) as any))
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(limit, 4) as any))
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(4, 5) as any));
+
+    let viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      limit,
+    );
+    expect(viewMulticallResponse.length).toEqual(allMulticallRequests.length);
+
+    // When limit = 4
+    limit = 4;
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(0, limit) as any))
+      .mockReturnValueOnce(
+        Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(limit, 5) as any),
+      );
+
+    viewMulticallResponse = await service.getListOfL2ToL1MessagesResult(allMulticallRequests, limit);
+    expect(viewMulticallResponse.length).toEqual(allMulticallRequests.length);
+  });
+
+  it('Success getListOfL2ToL1MessagesResult when there is duplicate message hash in trust mode', async () => {
     process.env.TRUSTED_MODE = 'true';
     const fromBlock = 100;
     const toBlock = 150;
@@ -253,8 +290,10 @@ describe.only('RelayerService', () => {
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
       .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse as any));
 
-    const viewMulticallResponse: Array<MulticallResponse> =
-      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
+    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      250,
+    );
 
     for (let i = 0; i < viewMulticallResponse.length; i++) {
       expect(viewMulticallResponse[i].returnData).toEqual(
@@ -278,7 +317,7 @@ describe.only('RelayerService', () => {
     expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(2);
   });
 
-  it('Success filterWhichMessagesCanBeConsumeOnL1MulticallView when there is duplicate message hash in no trust mode', async () => {
+  it('Success getListOfL2ToL1MessagesResult when there is duplicate message hash in no trust mode', async () => {
     process.env.TRUSTED_MODE = 'false';
     const fromBlock = 100;
     const toBlock = 150;
@@ -292,8 +331,10 @@ describe.only('RelayerService', () => {
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
       .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3NoTrustModeResponse as any));
 
-    const viewMulticallResponse: Array<MulticallResponse> =
-      await service.filterWhichMessagesCanBeConsumeOnL1MulticallView(allMulticallRequests);
+    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      250,
+    );
 
     for (let i = 0; i < viewMulticallResponse.length; i++) {
       expect(viewMulticallResponse[i].returnData).toEqual(
@@ -353,7 +394,7 @@ describe.only('RelayerService', () => {
     let isValid = service.checkIfUserPaiedTheRelayer([
       {
         from_: '0x',
-        to: '0x0000000000000000000000000000000000000000000000000000000000000001',
+        to: '0x027f237537479fd27551379d1acc58f5448386a7094aac9b269e5d57aaf9d8c7',
         value: '100',
       },
     ]);
