@@ -379,7 +379,6 @@ describe.only('RelayerService', () => {
       jest
         .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
         .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
-
       jest.spyOn(mongoService, 'updateProcessedBlock').mockImplementation();
 
       const res = await service.processWithdrawals(fromBlock, toBlock, stateBlockNumber);
@@ -394,28 +393,36 @@ describe.only('RelayerService', () => {
   it('Success consume messages on L1 with limit', async () => {
     let limit = 2;
     jest.spyOn(web3Service, 'callWithdrawMulticall').mockReturnValue(Promise.resolve(createMock()));
-    jest.spyOn(service, '_consumeMessagesOnL1').mockImplementation(async (multicall: Array<MulticallRequest>) => {
-      expect(multicall.length).toEqual(2);
-    });
+    jest
+      .spyOn(service, '_consumeMessagesOnL1')
+      .mockImplementation(async (multicall: Array<MulticallRequest>): Promise<ethers.ContractTransaction> => {
+        expect(multicall.length).toEqual(2);
+        return createMock<ethers.ContractTransaction>();
+      });
 
     let length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
     expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 5;
-    jest.spyOn(service, '_consumeMessagesOnL1').mockImplementation(async (multicall: Array<MulticallRequest>) => {
-      expect(multicall.length).toEqual(5);
-    });
+    jest
+      .spyOn(service, '_consumeMessagesOnL1')
+      .mockImplementation(async (multicall: Array<MulticallRequest>): Promise<ethers.ContractTransaction> => {
+        expect(multicall.length).toEqual(5);
+        return createMock<ethers.ContractTransaction>();
+      });
     length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
     expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 6;
     jest
       .spyOn(service, '_consumeMessagesOnL1')
-      .mockImplementationOnce(async (multicall: Array<MulticallRequest>) => {
+      .mockImplementationOnce(async (multicall: Array<MulticallRequest>): Promise<ethers.ContractTransaction> => {
         expect(multicall.length).toEqual(6);
+        return createMock<ethers.ContractTransaction>();
       })
-      .mockImplementationOnce(async (multicall: Array<MulticallRequest>) => {
+      .mockImplementationOnce(async (multicall: Array<MulticallRequest>): Promise<ethers.ContractTransaction> => {
         expect(multicall.length).toEqual(4);
+        return createMock<ethers.ContractTransaction>();
       });
     length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
     expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));

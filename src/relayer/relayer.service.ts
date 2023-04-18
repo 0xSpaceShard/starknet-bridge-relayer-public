@@ -254,19 +254,21 @@ export class RelayerService {
       const from = i * limit;
       const to = Math.min((i + 1) * limit, multicallRequest.length);
       const multicallRequests = multicallRequest.slice(from, to);
-      await this._consumeMessagesOnL1(multicallRequests);
+      const tx = await this._consumeMessagesOnL1(multicallRequests);
+      await tx.wait()
     }
     return lenght
   }
 
-  async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
-    await this.callWithRetry({
+  async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>): Promise<ethers.ContractTransaction> {
+    return await this.callWithRetry({
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
         this.logger.log('Consume messages tx', { txHash: tx.hash });
         this.prometheusService.web3ConsumeMessageRequests
           .labels({ method: 'callWithdrawMulticall', txHash: tx.hash })
           .inc();
+        return tx
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to consume messagess: ${error}`;
