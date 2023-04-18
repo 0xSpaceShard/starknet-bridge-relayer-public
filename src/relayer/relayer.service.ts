@@ -111,7 +111,7 @@ export class RelayerService {
         );
         // Consume the messages.
         if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
-          await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1);
+          await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1, 50);
         }
         // Store the last processed block on database.
         await this.updateProcessedBlock(currentToBlockNumber);
@@ -248,7 +248,18 @@ export class RelayerService {
     return multicallRequests;
   }
 
-  async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
+  async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>, limit: number): Promise<number> {
+    const lenght = Math.ceil(multicallRequest.length / limit);
+    for (let i = 0; i < lenght; i++) {
+      const from = i * limit;
+      const to = Math.min((i + 1) * limit, multicallRequest.length);
+      const multicallRequests = multicallRequest.slice(from, to);
+      await this._consumeMessagesOnL1(multicallRequests);
+    }
+    return lenght
+  }
+
+  async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>) {
     await this.callWithRetry({
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
@@ -298,7 +309,7 @@ export class RelayerService {
     return multicallResponses;
   }
 
-  private async _getListOfL2ToL1MessagesResult(
+  async _getListOfL2ToL1MessagesResult(
     allMulticallRequests: Array<MulticallRequest>,
   ): Promise<Array<MulticallResponse>> {
     return await this.callWithRetry({

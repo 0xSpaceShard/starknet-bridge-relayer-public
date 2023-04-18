@@ -1,4 +1,5 @@
 import { Withdrawal } from 'indexer/entities';
+import { MulticallRequest } from 'web3/web3.interface';
 
 export const withdrawalsResponseMock: Array<Withdrawal> = [
   {
@@ -291,7 +292,7 @@ export const canConsumeMessageOnL1MulticallViewResponse = [
     success: true,
     returnData: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
-]
+];
 
 export const canConsumeMessageOnL1MulticallView3TrustModeResponse = [
   {
@@ -318,7 +319,7 @@ export const canConsumeMessageOnL1MulticallView3TrustModeResponse = [
     success: true,
     returnData: '0x0000000000000000000000000000000000000000000000000000000000000001',
   },
-]
+];
 
 export const canConsumeMessageOnL1MulticallView3NoTrustModeResponse = [
   {
@@ -333,4 +334,47 @@ export const canConsumeMessageOnL1MulticallView3NoTrustModeResponse = [
     success: true,
     returnData: '0x0000000000000000000000000000000000000000000000000000000000000001',
   },
-]
+];
+
+export const multcallRequestConsumeMessagesOnL1Mock: Array<MulticallRequest> = [
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1156e4be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1146e4be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1136e4be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1126e4be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1116e4be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e9be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e8be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e7be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e6be',
+  },
+  {
+    target: '0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696',
+    callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e5be',
+  },
+];

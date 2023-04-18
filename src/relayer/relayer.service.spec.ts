@@ -10,12 +10,13 @@ import {
   canConsumeMessageOnL1MulticallView3TrustModeResponse,
   canConsumeMessageOnL1MulticallViewResponse,
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
+  multcallRequestConsumeMessagesOnL1Mock,
   withdrawalsResponseMock,
   withdrawalsResponseMock2,
   withdrawalsResponseMock3,
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
-import { MulticallResponse } from 'web3/web3.interface';
+import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
 import { getMessageHash } from './utils';
 import { ADDRESSES } from 'web3/web3.constants';
@@ -388,6 +389,36 @@ describe.only('RelayerService', () => {
       expect(res.totalWithdrawals).toEqual(5);
       expect(res.totalWithdrawalsProcessed).toEqual(canConsumeMessageOnL1MulticallViewResponseExpectedOutput.valid);
     }
+  });
+
+  it('Success consume messages on L1 with limit', async () => {
+    let limit = 2;
+    jest.spyOn(web3Service, 'callWithdrawMulticall').mockReturnValue(Promise.resolve(createMock()));
+    jest.spyOn(service, '_consumeMessagesOnL1').mockImplementation(async (multicall: Array<MulticallRequest>) => {
+      expect(multicall.length).toEqual(2);
+    });
+
+    let length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
+
+    limit = 5;
+    jest.spyOn(service, '_consumeMessagesOnL1').mockImplementation(async (multicall: Array<MulticallRequest>) => {
+      expect(multicall.length).toEqual(5);
+    });
+    length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
+
+    limit = 6;
+    jest
+      .spyOn(service, '_consumeMessagesOnL1')
+      .mockImplementationOnce(async (multicall: Array<MulticallRequest>) => {
+        expect(multicall.length).toEqual(6);
+      })
+      .mockImplementationOnce(async (multicall: Array<MulticallRequest>) => {
+        expect(multicall.length).toEqual(4);
+      });
+    length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
   });
 
   it('Success checkIfUserPaiedTheRelayer', () => {
