@@ -73,6 +73,8 @@ export class RelayerService {
     let totalWithdrawalsProcessed = 0;
     let totalWithdrawals = 0;
 
+    const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
+
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
       // Update the block numbers.
@@ -98,28 +100,34 @@ export class RelayerService {
         const allMulticallRequests: Array<MulticallRequest> = this.getMulticallRequests(
           requestWithdrawalAtBlocks.withdrawals,
         );
+
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
           allMulticallRequests,
-          250,
+          50,
         );
         // Filter the valid messages that can be consumed on L1.
-        const allMulticallRequestsForMessagesCanBeConsumedOnL1 = this.getListOfValidMessagesToConsumedOnL1(
-          requestWithdrawalAtBlocks.withdrawals,
-          viewMulticallResponse,
-          allMulticallRequests,
+        allMulticallRequestsForMessagesCanBeConsumedOnL1.push(
+          ...this.getListOfValidMessagesToConsumedOnL1(
+            requestWithdrawalAtBlocks.withdrawals,
+            viewMulticallResponse,
+            allMulticallRequests,
+          ),
         );
-        // Consume the messages.
-        if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
-          await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1, 50);
-        }
-        // Store the last processed block on database.
-        await this.updateProcessedBlock(currentToBlockNumber);
-        // Update stats.
-        totalWithdrawalsProcessed += allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
-        totalWithdrawals += allMulticallRequests.length;
+        totalWithdrawals += requestWithdrawalAtBlocks.withdrawals.length;
       }
     }
+
+    totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
+    this.logger.log('Create transactions', { totalWithdrawalsProcessed });
+
+    // Consume the messages.
+    if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
+      await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1, 50);
+    }
+    // Store the last processed block on database.
+    await this.updateProcessedBlock(currentToBlockNumber);
+
     return {
       currentFromBlockNumber,
       currentToBlockNumber,
@@ -255,20 +263,20 @@ export class RelayerService {
       const to = Math.min((i + 1) * limit, multicallRequest.length);
       const multicallRequests = multicallRequest.slice(from, to);
       const tx = await this._consumeMessagesOnL1(multicallRequests);
-      await tx.wait()
+      await tx.wait();
     }
-    return lenght
+    return lenght;
   }
 
   async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>): Promise<ethers.ContractTransaction> {
     return await this.callWithRetry({
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
-        this.logger.log('Consume messages tx', { txHash: tx.hash });
+        this.logger.log('Consume messages tx', { txHash: tx.hash, withdrawals: multicallRequest.length });
         this.prometheusService.web3ConsumeMessageRequests
           .labels({ method: 'callWithdrawMulticall', txHash: tx.hash })
           .inc();
-        return tx
+        return tx;
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to consume messagess: ${error}`;
