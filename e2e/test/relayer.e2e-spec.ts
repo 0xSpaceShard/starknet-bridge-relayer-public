@@ -1,7 +1,7 @@
 import { WithdrawalDoc } from './interfaces';
 import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
-import { l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
+import { NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
 import { Starknet, Starknet__factory } from '../starknet-core/typechain-types';
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
@@ -108,8 +108,8 @@ describe('Relayer (e2e)', () => {
     }
     // Process transactions
     const processWithdrawalsResult = await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
-    if (docs > 50) {
-      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(toBlock - 50);
+    if (docs > NumberOfWithdrawalsToProcessPerTransaction) {
+      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(toBlock - NumberOfWithdrawalsToProcessPerTransaction);
     } else {
       expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(fromBlock);
     }

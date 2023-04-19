@@ -1,5 +1,7 @@
 export const ZeroBytes = '0x0000000000000000000000000000000000000000000000000000000000000000';
 export const TRANSFER_FROM_STARKNET = 0;
+export const NumberOfWithdrawalsToProcessPerTransaction = 50
+export const NumberOfMessageToProcessPerTransaction = 50
 
 const l2BridgeAddressToL1Goerli = {
   '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b': {

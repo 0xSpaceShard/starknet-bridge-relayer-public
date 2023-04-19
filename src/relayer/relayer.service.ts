@@ -7,9 +7,14 @@ import {
   RequestWithdrawalAtBlocks,
 } from './relayer.interface';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
-import { ZeroBytes, l2BridgeAddressToL1 } from './relayer.constants';
+import {
+  NumberOfMessageToProcessPerTransaction,
+  NumberOfWithdrawalsToProcessPerTransaction,
+  ZeroBytes,
+  l2BridgeAddressToL1,
+} from './relayer.constants';
 import { MongoService } from 'storage/mongo/mongo.service';
-import { Transfer, Withdrawal } from 'indexer/entities';
+import { Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
 import { callWithRetry, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -19,9 +24,9 @@ import { ethers, BigNumber } from 'ethers';
 
 @Injectable()
 export class RelayerService {
-  sleepAfterSuccessExec: number;
-  sleepAfterFailExec: number;
-  chunk: number;
+  sleepAfterSuccessExec: number = 300000;
+  sleepAfterFailExec: number = 60000;
+  chunk: number = 50;
   networkId: string;
   relayerAddress: string;
   firstBlock: number;
@@ -35,9 +40,6 @@ export class RelayerService {
     private indexerService: IndexerService,
     private readonly prometheusService: PrometheusService,
   ) {
-    this.sleepAfterSuccessExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_SUCCESS_EXEC'));
-    this.sleepAfterFailExec = Number(this.configService.get('RELAYER_SLEEP_AFTER_FAIL_EXEC'));
-    this.chunk = Number(this.configService.get('NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK'));
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
     this.firstBlock = Number(this.configService.get('FIRST_BLOCK'));
@@ -104,7 +106,7 @@ export class RelayerService {
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
           allMulticallRequests,
-          50,
+          NumberOfMessageToProcessPerTransaction,
         );
         // Filter the valid messages that can be consumed on L1.
         allMulticallRequestsForMessagesCanBeConsumedOnL1.push(
@@ -123,7 +125,10 @@ export class RelayerService {
 
     // Consume the messages.
     if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
-      await this.consumeMessagesOnL1(allMulticallRequestsForMessagesCanBeConsumedOnL1, 50);
+      await this.consumeMessagesOnL1(
+        allMulticallRequestsForMessagesCanBeConsumedOnL1,
+        NumberOfWithdrawalsToProcessPerTransaction,
+      );
     }
     // Store the last processed block on database.
     await this.updateProcessedBlock(currentToBlockNumber);

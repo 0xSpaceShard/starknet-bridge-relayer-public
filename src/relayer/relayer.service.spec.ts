@@ -274,7 +274,6 @@ describe.only('RelayerService', () => {
   });
 
   it('Success getListOfL2ToL1MessagesResult when there is duplicate message hash in trust mode', async () => {
-    process.env.TRUSTED_MODE = 'true';
     const fromBlock = 100;
     const toBlock = 150;
     const withdrawals = withdrawalsResponseMock;
