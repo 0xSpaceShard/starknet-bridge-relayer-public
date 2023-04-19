@@ -55,6 +55,9 @@ services:
       - mongo
       - hardhat
       - indexer
+    # volumes:
+    #   - ..:/app
+    #   - /app/node_modules
 
   hardhat:
     build:
