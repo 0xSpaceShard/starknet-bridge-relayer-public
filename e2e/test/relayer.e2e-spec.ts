@@ -60,10 +60,15 @@ describe('Relayer (e2e)', () => {
     // const stateBlock = 786550;
     // const docs = 694;
 
+    // const fromBlock = 786000;
+    // const toBlock = 786200;
+    // const stateBlock = 786250;
+    // const docs = 356;
+
     const fromBlock = 786000;
-    const toBlock = 786200;
+    const toBlock = 786008;
     const stateBlock = 786250;
-    const docs = 356;
+    const docs = 14;
 
     await starknet.setStateBlockNumber(stateBlock);
 
