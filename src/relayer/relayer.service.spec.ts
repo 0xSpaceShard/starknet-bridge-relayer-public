@@ -6,14 +6,10 @@ import { ConfigService } from 'common/config';
 import { IndexerService } from 'indexer/indexer.service';
 import { totalWithdrawalMock } from './__mocks__/IndexerService_mock';
 import {
-  canConsumeMessageOnL1MulticallView3NoTrustModeResponse,
-  canConsumeMessageOnL1MulticallView3TrustModeResponse,
   canConsumeMessageOnL1MulticallViewResponse,
   canConsumeMessageOnL1MulticallViewResponseExpectedOutput,
-  multcallRequestConsumeMessagesOnL1Mock,
+  multicallRequestConsumeMessagesOnL1Mock,
   withdrawalsResponseMock,
-  withdrawalsResponseMock2,
-  withdrawalsResponseMock3,
 } from './__mocks__/data';
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
@@ -254,9 +250,9 @@ describe.only('RelayerService', () => {
     let limit = 2;
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
-      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(0, limit) as any))
-      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(limit, 4) as any))
-      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(4, 5) as any));
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(0, limit) as any))
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(limit, 4) as any))
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(4, 5) as any));
 
     let viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
       allMulticallRequests,
@@ -268,9 +264,9 @@ describe.only('RelayerService', () => {
     limit = 4;
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
-      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(0, limit) as any))
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(0, limit) as any))
       .mockReturnValueOnce(
-        Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse.slice(limit, 5) as any),
+        Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(limit, 5) as any),
       );
 
     viewMulticallResponse = await service.getListOfL2ToL1MessagesResult(allMulticallRequests, limit);
@@ -281,7 +277,7 @@ describe.only('RelayerService', () => {
     process.env.TRUSTED_MODE = 'true';
     const fromBlock = 100;
     const toBlock = 150;
-    const withdrawals = withdrawalsResponseMock3;
+    const withdrawals = withdrawalsResponseMock;
     jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
     const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
 
@@ -289,7 +285,7 @@ describe.only('RelayerService', () => {
 
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
-      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3TrustModeResponse as any));
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
 
     const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
       allMulticallRequests,
@@ -298,7 +294,7 @@ describe.only('RelayerService', () => {
 
     for (let i = 0; i < viewMulticallResponse.length; i++) {
       expect(viewMulticallResponse[i].returnData).toEqual(
-        canConsumeMessageOnL1MulticallView3TrustModeResponse[i].returnData,
+        canConsumeMessageOnL1MulticallViewResponse[i].returnData,
       );
     }
 
@@ -318,46 +314,6 @@ describe.only('RelayerService', () => {
     expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(2);
   });
 
-  it('Success getListOfL2ToL1MessagesResult when there is duplicate message hash in no trust mode', async () => {
-    process.env.TRUSTED_MODE = 'false';
-    const fromBlock = 100;
-    const toBlock = 150;
-    const withdrawals = withdrawalsResponseMock3;
-    jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
-    const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
-
-    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
-
-    jest
-      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
-      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallView3NoTrustModeResponse as any));
-
-    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
-      allMulticallRequests,
-      250,
-    );
-
-    for (let i = 0; i < viewMulticallResponse.length; i++) {
-      expect(viewMulticallResponse[i].returnData).toEqual(
-        canConsumeMessageOnL1MulticallView3NoTrustModeResponse[i].returnData,
-      );
-    }
-
-    const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
-      withdrawalAtBlocksResponse.withdrawals,
-      viewMulticallResponse,
-      allMulticallRequests,
-    );
-
-    const withdrawalsCanBeConsumedList: Array<Withdrawal> = [];
-    expect(viewMulticallResponse.length).toEqual(canConsumeMessageOnL1MulticallView3NoTrustModeResponse.length);
-    for (let i = 0; i < viewMulticallResponse.length; i++) {
-      if (viewMulticallResponse[i].returnData == ethers.utils.hexZeroPad('0x1', 32)) {
-        withdrawalsCanBeConsumedList.push(withdrawalAtBlocksResponse.withdrawals[i]);
-      }
-    }
-    expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(1);
-  });
 
   it('Success processWithdrawals', async () => {
     const expectedValues = [
@@ -400,8 +356,8 @@ describe.only('RelayerService', () => {
         return createMock<ethers.ContractTransaction>();
       });
 
-    let length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
-    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
+    let length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 5;
     jest
@@ -410,8 +366,8 @@ describe.only('RelayerService', () => {
         expect(multicall.length).toEqual(5);
         return createMock<ethers.ContractTransaction>();
       });
-    length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
-    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
+    length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 6;
     jest
@@ -424,28 +380,8 @@ describe.only('RelayerService', () => {
         expect(multicall.length).toEqual(4);
         return createMock<ethers.ContractTransaction>();
       });
-    length = await service.consumeMessagesOnL1(multcallRequestConsumeMessagesOnL1Mock, limit);
-    expect(length).toEqual(Math.ceil(multcallRequestConsumeMessagesOnL1Mock.length / limit));
-  });
-
-  it('Success checkIfUserPaiedTheRelayer', () => {
-    let isValid = service.checkIfUserPaiedTheRelayer([
-      {
-        from_: '0x',
-        to: '0x027f237537479fd27551379d1acc58f5448386a7094aac9b269e5d57aaf9d8c7',
-        value: '100',
-      },
-    ]);
-    expect(isValid).toEqual(true);
-
-    isValid = service.checkIfUserPaiedTheRelayer([
-      {
-        from_: '0x',
-        to: '0x0000000000000000000000000000000000000000000000000000000000000020',
-        value: '100',
-      },
-    ]);
-    expect(isValid).toEqual(false);
+    length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
   });
 
   it('Success callWithRetry', async () => {
@@ -464,38 +400,5 @@ describe.only('RelayerService', () => {
         expect(error).toEqual(errorMessage);
       }
     });
-  });
-
-  it('Success trusted mode', async () => {
-    const testCases = [
-      {
-        fromBlock: 100,
-        toBlock: 150,
-        withdrawals: withdrawalsResponseMock2,
-        trustedMode: true,
-        expectedLength: 5,
-      },
-      {
-        fromBlock: 100,
-        toBlock: 150,
-        withdrawals: withdrawalsResponseMock2,
-        trustedMode: false,
-        expectedLength: 2,
-      },
-    ];
-
-    for (let i = 0; i < testCases.length; i++) {
-      const testCase = testCases[i];
-      process.env.TRUSTED_MODE = String(testCase.trustedMode);
-
-      jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(testCase.withdrawals));
-      const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(
-        testCase.fromBlock,
-        testCase.toBlock,
-      );
-
-      const res = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
-      expect(res.length).toEqual(testCase.expectedLength);
-    }
   });
 });
