@@ -207,10 +207,7 @@ export class RelayerService {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
 
-      if (
-        l1BridgeAddress &&
-        (this.checkIfUserPaiedTheRelayer(withdrawal.transfers) || this.configService.get('TRUSTED_MODE') == 'true')
-      ) {
+      if (l1BridgeAddress) {
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -367,18 +364,6 @@ export class RelayerService {
         throw errMessage;
       },
     });
-  }
-
-  checkIfUserPaiedTheRelayer(transfers: Transfer[]): boolean {
-    let paied: boolean = false;
-    for (let i = 0; i < transfers.length; i++) {
-      const transfer = transfers[i];
-      if (transfer.to == this.relayerAddress) {
-        paied = true;
-        break;
-      }
-    }
-    return paied;
   }
 
   async callWithRetry({ callback, errorCallback }: { callback: Function; errorCallback: Function }) {
