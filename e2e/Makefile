@@ -10,7 +10,7 @@ e2e-build: e2e-down
 	docker compose -f docker-compose-e2e.yaml build
 
 e2e-test:
-	docker exec e2e-relayer-test-1 yarn test:e2e --runInBand
+	docker exec e2e-relayer-test-1 yarn test:e2e --runInBand --verbose
 
 e2e-setup:
 # restore mongo data

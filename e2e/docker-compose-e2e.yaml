@@ -11,15 +11,14 @@ services:
     image: shardastronaut/stargate-bridge-indexer:latest
     restart: always
     environment:
-      SERVER_URL: ${SERVER_URL}
-      MONGO_URL: mongodb://mongo:27017
-      ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
-      DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
+      MONGO_URL: ${MONGO_URL}
+      NETWORK_ID: ${NETWORK_ID}
+      FIRST_BLOCK: ${FIRST_BLOCK}
+      LOGLEVEL: "${LOG_LEVEL}"
+      RECORD_LOGS: ""
       GRAPHQL_URL: ${GRAPHQL_URL}
       GRAPHQL_PORT: ${GRAPHQL_PORT}
       BUILD_ENV: ${BUILD_ENV}
-      FIRST_BLOCK: ${FIRST_BLOCK}
-      LOGLEVEL: ${LOG_LEVEL}
     ports:
       - 8080:8080
     depends_on:
@@ -43,18 +42,16 @@ services:
       ALCHEMY_RPC_URL: ${ALCHEMY_RPC_URL}
       FIRST_BLOCK: ${FIRST_BLOCK}
       INDEXER_URL: ${INDEXER_URL}
-      NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK: ${NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK}
-      MIN_TRANSACTIONS_TO_PROCESS: ${MIN_TRANSACTIONS_TO_PROCESS}
       RELAYER_L2_ADDRESS: ${RELAYER_L2_ADDRESS}
-      RELAYER_SLEEP_AFTER_SUCCESS_EXEC: ${RELAYER_SLEEP_AFTER_SUCCESS_EXEC}
-      RELAYER_SLEEP_AFTER_FAIL_EXEC: ${RELAYER_SLEEP_AFTER_FAIL_EXEC}
-      TRUSTED_MODE: ${TRUSTED_MODE}
       RPC_URL: ${RPC_URL}
     command: ['/bin/bash', '-c', 'sleep 2000']
     depends_on:
       - mongo
       - hardhat
       - indexer
+    # volumes:
+    #   - ..:/app
+    #   - /app/node_modules
 
   hardhat:
     build:

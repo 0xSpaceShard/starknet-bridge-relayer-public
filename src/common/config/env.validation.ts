@@ -59,24 +59,6 @@ export class EnvironmentVariables {
   @IsNumberString()
   FIRST_BLOCK: number;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Transform(toNumber({ defaultValue: 100 }))
-  NUMBER_OF_BLOCKS_TO_PROCESS_PER_CHUNK: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Transform(toNumber({ defaultValue: 100 }))
-  RELAYER_SLEEP_AFTER_SUCCESS_EXEC: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Transform(toNumber({ defaultValue: 100 }))
-  RELAYER_SLEEP_AFTER_FAIL_EXEC: number;
-
   @IsString()
   INDEXER_URL: string;
 
@@ -88,10 +70,6 @@ export class EnvironmentVariables {
   @Min(1)
   @Transform(toNumber({ defaultValue: 1000000000 }))
   MAX_PRIORITY_FEE_PER_GAS: number;
-
-  @IsOptional()
-  @IsString()
-  TRUSTED_MODE: string;
 }
 
 export function validate(config: Record<string, unknown>) {

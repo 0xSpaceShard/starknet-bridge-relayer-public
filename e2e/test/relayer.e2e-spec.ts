@@ -1,7 +1,7 @@
 import { WithdrawalDoc } from './interfaces';
 import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
-import { l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
+import { NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
 import { Starknet, Starknet__factory } from '../starknet-core/typechain-types';
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
@@ -55,6 +55,16 @@ describe('Relayer (e2e)', () => {
   });
 
   it('Consume valid transactions', async () => {
+    // const fromBlock = 786000;
+    // const toBlock = 786500;
+    // const stateBlock = 786550;
+    // const docs = 694;
+
+    // const fromBlock = 786000;
+    // const toBlock = 786200;
+    // const stateBlock = 786250;
+    // const docs = 356;
+
     const fromBlock = 786000;
     const toBlock = 786008;
     const stateBlock = 786250;
@@ -70,12 +80,11 @@ describe('Relayer (e2e)', () => {
 
     const allMessageHashes = [];
     const validMessageHashes = [];
-    const invalidMessageHashes = [];
     const usersAddresses = [];
     const userBalancesBefore: Array<BigNumber> = [];
     const userExpectedAmountToReceive: any = {};
+    let numberOfUsersToCheckBalanced = 10; // to avoid rate limiting
 
-    // Add messages to Starknet core contract, add only the `withdrawals.length / 2`
     {
       for (let i = 0; i < docs; i++) {
         const withdraw = withdrawals[i];
@@ -87,32 +96,25 @@ describe('Relayer (e2e)', () => {
         const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
         allMessageHashes.push(msgHash);
 
-        if (Math.floor(Math.random() * 100) > 50) {
-          validMessageHashes.push(msgHash);
+        validMessageHashes.push(msgHash);
+        if (i < numberOfUsersToCheckBalanced) {
           userBalancesBefore.push(await provider.getBalance(l1Recipient));
           usersAddresses.push(l1Recipient);
-          if (!userExpectedAmountToReceive[l1Recipient]) {
-            userExpectedAmountToReceive[l1Recipient] = amount;
-          } else {
-            userExpectedAmountToReceive[l1Recipient] = userExpectedAmountToReceive[l1Recipient].add(amount);
-          }
+        }
+        if (!userExpectedAmountToReceive[l1Recipient]) {
+          userExpectedAmountToReceive[l1Recipient] = amount;
         } else {
-          invalidMessageHashes.push(msgHash);
+          userExpectedAmountToReceive[l1Recipient] = userExpectedAmountToReceive[l1Recipient].add(amount);
         }
       }
-
+      
       await starknet.connect(signer).deleteMessage(allMessageHashes);
       await starknet.connect(signer).addMessage(validMessageHashes);
-
-      for (let i = 0; i < validMessageHashes.length; i++) {
-        expect((await starknet.l2ToL1Messages(validMessageHashes[i])).toNumber()).toBeGreaterThan(0);
-      }
     }
-
     // Process transactions
     const processWithdrawalsResult = await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
-    if (docs > 50) {
-      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(toBlock - 50);
+    if (docs > NumberOfWithdrawalsToProcessPerTransaction) {
+      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(toBlock - NumberOfWithdrawalsToProcessPerTransaction);
     } else {
       expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(fromBlock);
     }
@@ -123,7 +125,7 @@ describe('Relayer (e2e)', () => {
 
     // Get users balances after processing the transactions
     const userBalancesAfter: Array<BigNumber> = [];
-    for (let i = 0; i < validMessageHashes.length; i++) {
+    for (let i = 0; i < usersAddresses.length; i++) {
       userBalancesAfter.push(await provider.getBalance(usersAddresses[i]));
     }
 
@@ -158,11 +160,19 @@ describe('Relayer (e2e)', () => {
         callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
       },
-    ]
-    const tx = await web3Service.callWithdrawMulticall(hashes);
+    ];
+    let tx = await web3Service.callWithdrawMulticall(hashes);
 
     expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL + GAS_LIMIT_MULTIPLE_WITHDRAWAL * hashes.length);
-    const receipt = await provider.getTransactionReceipt(tx.hash);
+    let receipt = await provider.getTransactionReceipt(tx.hash);
+    expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
+
+    await starknet.addMessage([msgHash]);
+    expect((await starknet.l2ToL1Messages(msgHash)).toNumber()).not.toEqual(0);
+    tx = await web3Service.callWithdrawMulticall([hashes[0]]);
+
+    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL);
+    receipt = await provider.getTransactionReceipt(tx.hash);
     expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
   });
 });
