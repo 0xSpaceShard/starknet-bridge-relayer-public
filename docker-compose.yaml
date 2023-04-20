@@ -18,14 +18,11 @@ services:
     container_name: starkgate-bridge-indexer
     restart: always
     environment:
-      SERVER_URL: ${SERVER_URL}
       MONGO_URL: ${MONGO_URL}
-      RELAYER_L2_ADDRESS: ${RELAYER_L2_ADDRESS}
-      ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
-      DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
-      INDEXER_RESTART: ${INDEXER_RESTART}
+      NETWORK_ID: ${NETWORK_ID}
       FIRST_BLOCK: ${FIRST_BLOCK}
       LOGLEVEL: "${LOG_LEVEL}"
+      RECORD_LOGS: ""
       GRAPHQL_URL: ${GRAPHQL_URL}
       GRAPHQL_PORT: ${GRAPHQL_PORT}
       BUILD_ENV: ${BUILD_ENV}

@@ -13,15 +13,14 @@ services:
     image: shardastronaut/stargate-bridge-indexer:latest
     restart: always
     environment:
-      SERVER_URL: ${SERVER_URL}
       MONGO_URL: ${MONGO_URL}
-      ETH_BRIDGE_ADDRESS: ${ETH_BRIDGE_ADDRESS}
-      DAI_BRIDGE_ADDRESS: ${DAI_BRIDGE_ADDRESS}
+      NETWORK_ID: ${NETWORK_ID}
+      FIRST_BLOCK: ${FIRST_BLOCK}
+      LOGLEVEL: "${LOG_LEVEL}"
+      RECORD_LOGS: ""
       GRAPHQL_URL: ${GRAPHQL_URL}
       GRAPHQL_PORT: ${GRAPHQL_PORT}
       BUILD_ENV: ${BUILD_ENV}
-      FIRST_BLOCK: ${FIRST_BLOCK}
-      LOGLEVEL: "debug"
     ports:
       - 8080:8080
     depends_on:
