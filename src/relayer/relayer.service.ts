@@ -56,11 +56,11 @@ export class RelayerService {
           this.logger.log('Nothing to process.');
         }
       } catch (error: any) {
-        this.logger.error(`Error process withdrawals, sleep ${this.sleepAfterSuccessExec} MS`, { error });
+        this.logger.error(`Error process withdrawals, sleep ${this.sleepAfterSuccessExec / 1000} sec`, { error });
         await sleep(this.sleepAfterFailExec);
         continue;
       }
-      this.logger.log(`Relayer sleep ${this.sleepAfterSuccessExec} MS`);
+      this.logger.log(`Relayer sleep ${this.sleepAfterSuccessExec / 1000} sec`);
       await sleep(this.sleepAfterSuccessExec);
     }
   }
