@@ -161,10 +161,18 @@ describe('Relayer (e2e)', () => {
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
       },
     ];
-    const tx = await web3Service.callWithdrawMulticall(hashes);
+    let tx = await web3Service.callWithdrawMulticall(hashes);
 
     expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL + GAS_LIMIT_MULTIPLE_WITHDRAWAL * hashes.length);
-    const receipt = await provider.getTransactionReceipt(tx.hash);
+    let receipt = await provider.getTransactionReceipt(tx.hash);
+    expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
+
+    await starknet.addMessage([msgHash]);
+    expect((await starknet.l2ToL1Messages(msgHash)).toNumber()).not.toEqual(0);
+    tx = await web3Service.callWithdrawMulticall([hashes[0]]);
+
+    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL);
+    receipt = await provider.getTransactionReceipt(tx.hash);
     expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
   });
 });
