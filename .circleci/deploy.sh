@@ -9,6 +9,7 @@ ssh $SSH_NESTED_HOST <<EOB
         git fetch && \
         git checkout $CIRCLE_BRANCH && \
         git pull && \
+        docker-compose -f docker-compose.$CIRCLE_BRANCH.yml pull && \
         docker-compose -f docker-compose.$CIRCLE_BRANCH.yml up -d --build
 
     else
@@ -17,6 +18,7 @@ ssh $SSH_NESTED_HOST <<EOB
         cd $CIRCLE_PROJECT_REPONAME-$CIRCLE_BRANCH && \
         git checkout $CIRCLE_BRANCH && \
         git pull && \
+        docker-compose -f docker-compose.$CIRCLE_BRANCH.yml pull && \
         docker-compose -f docker-compose.$CIRCLE_BRANCH.yml up -d --build
     fi
 EOB
