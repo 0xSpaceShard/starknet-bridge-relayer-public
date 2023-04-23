@@ -2,7 +2,7 @@ import { WithdrawalDoc } from './interfaces';
 import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
 import { NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
-import { Starknet, Starknet__factory } from '../starknet-core/typechain-types';
+import { IERC20, IERC20__factory, Starknet, Starknet__factory } from '../starknet-core/typechain-types';
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -81,7 +81,7 @@ describe('Relayer (e2e)', () => {
     const allMessageHashes = [];
     const validMessageHashes = [];
     const usersAddresses = [];
-    const userBalancesBefore: Array<BigNumber> = [];
+    const userBalancesBefore = [];
     const userExpectedAmountToReceive: any = {};
     let numberOfUsersToCheckBalanced = 10; // to avoid rate limiting
 
@@ -98,8 +98,16 @@ describe('Relayer (e2e)', () => {
 
         validMessageHashes.push(msgHash);
         if (i < numberOfUsersToCheckBalanced) {
-          userBalancesBefore.push(await provider.getBalance(l1Recipient));
-          usersAddresses.push(l1Recipient);
+          if (l2BridgeAddress == '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82') {
+            userBalancesBefore.push(await provider.getBalance(l1Recipient));
+            usersAddresses.push({ erc20: false, l1Recipient });
+          } else {
+            const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            const erc20 = IERC20__factory.connect(add, signer) as IERC20;
+            const balance = await erc20.balanceOf(l1Recipient);
+            userBalancesBefore.push(balance.toString());
+            usersAddresses.push({ erc20: true, l1Recipient, erc20address: add });
+          }
         }
         if (!userExpectedAmountToReceive[l1Recipient]) {
           userExpectedAmountToReceive[l1Recipient] = amount;
@@ -107,14 +115,16 @@ describe('Relayer (e2e)', () => {
           userExpectedAmountToReceive[l1Recipient] = userExpectedAmountToReceive[l1Recipient].add(amount);
         }
       }
-      
+
       await starknet.connect(signer).deleteMessage(allMessageHashes);
       await starknet.connect(signer).addMessage(validMessageHashes);
     }
     // Process transactions
     const processWithdrawalsResult = await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
     if (docs > NumberOfWithdrawalsToProcessPerTransaction) {
-      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(toBlock - NumberOfWithdrawalsToProcessPerTransaction);
+      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(
+        toBlock - NumberOfWithdrawalsToProcessPerTransaction,
+      );
     } else {
       expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(fromBlock);
     }
@@ -126,11 +136,20 @@ describe('Relayer (e2e)', () => {
     // Get users balances after processing the transactions
     const userBalancesAfter: Array<BigNumber> = [];
     for (let i = 0; i < usersAddresses.length; i++) {
-      userBalancesAfter.push(await provider.getBalance(usersAddresses[i]));
+      if (usersAddresses[i].erc20) {
+        const erc20 = IERC20__factory.connect(usersAddresses[i].erc20address, signer) as IERC20;
+        const balance = await erc20.balanceOf(usersAddresses[i].l1Recipient);
+        userBalancesAfter.push(balance);
+      } else {
+        const balance = await provider.getBalance(usersAddresses[i].l1Recipient);
+        userBalancesAfter.push(balance);
+      }
     }
 
     for (let i = 0; i < userBalancesAfter.length; i++) {
-      expect(userBalancesAfter[i].sub(userBalancesBefore[i])).toEqual(userExpectedAmountToReceive[usersAddresses[i]]);
+      expect(userBalancesAfter[i].sub(userBalancesBefore[i])).toEqual(
+        userExpectedAmountToReceive[usersAddresses[i].l1Recipient],
+      );
     }
     expect((await mongoService.getLastProcessedBlock()).blockNumber).toEqual(toBlock);
   });
