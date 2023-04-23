@@ -4,7 +4,7 @@ import { MulticallRequest } from 'web3/web3.interface';
 export const withdrawalsResponseMock: Array<Withdrawal> = [
   {
     blockHeight: 300117,
-    bridgeAddress: '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b',
+    bridgeAddress: '0x072eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b',
     l1Recipient: '0x000000000000000000000000d1b4dacf4af49a6265e6559bb85e564ec8f5a44b',
     amount: '100000000000000',
     callerAddress: '0x07f3daf45d6e531ff3c6c96f052fe3384c970e68e18d32e0826908e1fa48dd9d',
@@ -36,7 +36,7 @@ export const withdrawalsResponseMock: Array<Withdrawal> = [
   },
   {
     blockHeight: 300121,
-    bridgeAddress: '0x71d54658ca3c6ccd84ff958adb7498b2e71ba008e29b643983221ed2bd71b69',
+    bridgeAddress: '0x071d54658ca3c6ccd84ff958adb7498b2e71ba008e29b643983221ed2bd71b69',
     l1Recipient: '0x000000000000000000000000d60f50848e7b159eb72e2124d0115aaa6de1d5c7',
     amount: '80000000000000000',
     callerAddress: '0x007bf1415672a805e247045d4d8c8d96c5b27973811bf523b822577ad8dd8665',

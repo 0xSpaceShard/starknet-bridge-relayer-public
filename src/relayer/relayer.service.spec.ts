@@ -88,7 +88,7 @@ describe.only('RelayerService', () => {
 
   it('Success get the message hash to consume on L1', () => {
     const expectedHash = '0x302d070309d4762649be301e2b9349809a2d4e5d9e045493bd14056c93cf895d';
-    const l2BridgeAddress = '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b';
+    const l2BridgeAddress = '0x072eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b';
     const l1BridgeAddress = '0xf29aE3446Ce4688fCc792b232C21D1B9581E7baC';
     const l1ReceiverAddress = '0x0000000000000000000000000000000000000001';
     const amount = '100';

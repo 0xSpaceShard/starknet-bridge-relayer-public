@@ -4,7 +4,7 @@ export const NumberOfWithdrawalsToProcessPerTransaction = 50
 export const NumberOfMessageToProcessPerTransaction = 50
 
 const l2BridgeAddressToL1Goerli = {
-  '0x72eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b': {
+  '0x072eeb90833bae233a9585f2fa9afc99c187f0a3a82693becd6a4d700b37fc6b': {
     name: 'Wrapped BTC',
     symbol: 'WBTC',
     decimals: 8,
@@ -20,7 +20,7 @@ const l2BridgeAddressToL1Goerli = {
     l2TokenAddress: '0x005a643907b9a4bc6a55e9069c4fd5fd1f5c79a22470690f75556c4736e34426',
     l1BridgeAddress: '0xBA9cE9F22A3Cfa7Fcb5c31f6B2748b1e72C06204',
   },
-  '0x71d54658ca3c6ccd84ff958adb7498b2e71ba008e29b643983221ed2bd71b69': {
+  '0x071d54658ca3c6ccd84ff958adb7498b2e71ba008e29b643983221ed2bd71b69': {
     name: 'Tether USD',
     symbol: 'USDT',
     decimals: 6,
