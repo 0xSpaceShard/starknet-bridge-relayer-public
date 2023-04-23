@@ -6,6 +6,8 @@ export type { starknetSol };
 import type * as interfaces from "./interfaces";
 export type { interfaces };
 export * as factories from "./factories";
+export type { IERC20 } from "./interfaces/ERC20.sol/IERC20";
+export { IERC20__factory } from "./factories/interfaces/ERC20.sol/IERC20__factory";
 export type { IStarknetCoreProxy } from "./interfaces/StarknetCoreProxy.sol/IStarknetCoreProxy";
 export { IStarknetCoreProxy__factory } from "./factories/interfaces/StarknetCoreProxy.sol/IStarknetCoreProxy__factory";
 export type { Governance } from "./Starknet.sol/Governance";
