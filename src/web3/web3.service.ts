@@ -12,7 +12,7 @@ import {
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
 import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
-import { ContractAddress, MulticallRequest, Provider } from './web3.interface';
+import { BaseFeePerGasHistory, ContractAddress, MulticallRequest, Provider } from './web3.interface';
 import * as StarknetCoreABI from './abis/StarknetCore.json';
 import * as StarknetTokenBridgeABI from './abis/StarknetTokenBridge.json';
 
@@ -75,6 +75,16 @@ export class Web3Service {
   encodeBridgeToken = (functionName: string, params: any[]): string => {
     let iface = new ethers.utils.Interface(StarknetTokenBridgeABI);
     return iface.encodeFunctionData(functionName, params);
+  };
+
+  fetchBaseFeePriceHistory = async (blockNumber: number, numberOfBlocks: number): Promise<BaseFeePerGasHistory> => {
+    const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
+    const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
+      numberOfBlocks + 1,
+      BigNumber.from(blockNumber).toHexString(),
+      [],
+    ]);
+    return baseFeePerGasHistoryList;
   };
 
   async getProvider() {
