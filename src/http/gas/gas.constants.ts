@@ -14,3 +14,4 @@ export const BlockNumber24H = 5760; // 84600 / 14
 export const CacheFeeHistoryKey = 'feeHistory'
 export const CacheDuration24hInMs = 86400000 // 1000 * 60 * 60 * 24
 export const CheckPointSizeMs = 900
+export const FeeShiftPercentage = 20 // additional fee to charge the users 20%

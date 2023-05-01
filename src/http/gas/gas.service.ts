@@ -5,7 +5,13 @@ import { callWithRetry, sleep } from 'relayer/relayer.utils';
 import { catchError, firstValueFrom } from 'rxjs';
 import { BaseFeePerGasHistory } from 'web3/web3.interface';
 import { Web3Service } from 'web3/web3.service';
-import { BlockNumber24H, CacheDuration24hInMs, EtherscanApiUrl, GasCostPerWithdrawal } from './gas.constants';
+import {
+  BlockNumber24H,
+  CacheDuration24hInMs,
+  EtherscanApiUrl,
+  FeeShiftPercentage,
+  GasCostPerWithdrawal,
+} from './gas.constants';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'common/config';
 import { BigNumber } from 'ethers';
@@ -59,7 +65,7 @@ export class GasService {
   };
 
   calculateGasCost = async (feeHistory: FeeHistory, gasUnit: number): Promise<BigNumber> => {
-    const averageGasPrice = this.getAverageGasPrice(feeHistory.baseFees);
+    let averageGasPrice = this.getAverageGasPrice(feeHistory.baseFees);
     return this.getGasCost(averageGasPrice, gasUnit);
   };
 
@@ -73,8 +79,9 @@ export class GasService {
       totalBaseFeePrice = totalBaseFeePrice.add(BigNumber.from(baseFeePriceHistoryList[i]));
     }
     const averageBaseGasPrice = roundBigNumber(totalBaseFeePrice.div(baseFeePriceHistoryList.length));
+
     const averageBaseGasPriceCeil = ceilBigNumber(averageBaseGasPrice);
-    return averageBaseGasPriceCeil;
+    return averageBaseGasPriceCeil.mul(100 + this.getFeeShiftPercentage()).div(100);
   };
 
   fetchBaseFeePriceHistory = async (lastBlockNumber: number, oldBlockNumber: number): Promise<FeeHistory> => {
@@ -118,11 +125,11 @@ export class GasService {
         }
 
         if (feeHistory.baseFees.length !== lastBlockNumber - oldBlockNumber) {
-          this.logger.error("Invalid Base gas data", {
+          this.logger.error('Invalid Base gas data', {
             feeHistoryLength: feeHistory.baseFees.length,
             expectedLength: lastBlockNumber - oldBlockNumber,
           });
-          throw new Error("Invalid Base gas data");
+          throw new Error('Invalid Base gas data');
         }
         return feeHistory;
       },
@@ -177,5 +184,9 @@ export class GasService {
 
   getLimit = (): number => {
     return 1000;
+  };
+
+  getFeeShiftPercentage = (): number => {
+    return FeeShiftPercentage;
   };
 }

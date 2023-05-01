@@ -6,7 +6,8 @@ export const roundBigNumber = (input: BigNumber): BigNumber => {
 };
 
 export const ceilBigNumber = (input: BigNumber): BigNumber => {
-  return input.sub(input.mod(FiveGwei)).add(FiveGwei);
+  const mod = input.mod(FiveGwei);
+  return input.sub(mod).add(mod.gt(0) ? FiveGwei : 0);
 };
 
 export const clampTimestamp = (timestamp: number): number => {

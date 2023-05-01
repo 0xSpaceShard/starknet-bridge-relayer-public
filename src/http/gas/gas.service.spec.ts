@@ -220,7 +220,7 @@ describe('GasService', () => {
       },
       {
         input: BigNumber.from((20 * OneGwei).toString()),
-        output: BigNumber.from((25 * OneGwei).toString()),
+        output: BigNumber.from((20 * OneGwei).toString()),
       },
       {
         input: BigNumber.from((24 * OneGwei).toString()),
@@ -293,5 +293,15 @@ describe('GasService', () => {
     const avgGasCost2 = await service.getGasCostPerTimestamp(1669087968);
     expect(avgGasCost2.mod(5).toNumber()).toEqual(0);
     expect(avgGasCost1).toEqual(avgGasCost2);
+  });
+
+  it('Success getAverageGasPrice', async () => {
+    jest.spyOn(service, 'getFeeShiftPercentage').mockReturnValue(0);
+    let avgGasPrice = service.getAverageGasPrice(['1000000000000', '1000000000000', '1000000000000']);
+    expect(avgGasPrice.toString()).toEqual(BigNumber.from('1000000000000').toString());
+
+    jest.spyOn(service, 'getFeeShiftPercentage').mockReturnValue(20);
+    avgGasPrice = service.getAverageGasPrice(['1000000000000', '1000000000000', '1000000000000']);
+    expect(avgGasPrice.toString()).toEqual(BigNumber.from('1200000000000').toString());
   });
 });
