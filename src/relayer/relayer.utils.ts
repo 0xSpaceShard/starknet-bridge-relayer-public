@@ -1,3 +1,7 @@
+import { TRANSFER_FROM_STARKNET } from './relayer.constants';
+import { uint256 } from 'starknet';
+import { ethers } from 'ethers';
+
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const callWithRetry = async (retries: number, delay: number, callback: Function, errorCallback: Function) => {
@@ -12,3 +16,18 @@ export const callWithRetry = async (retries: number, delay: number, callback: Fu
     }
   }
 };
+
+export const getMessageHash = (
+  l2BridgeAddress: string,
+  l1BridgeAddress: string,
+  receiverL1: string,
+  amount: string,
+): string => {
+  const amountUint256 = uint256.bnToUint256(amount.toString());
+  const payload = [TRANSFER_FROM_STARKNET, receiverL1, amountUint256.low, amountUint256.high];
+  return ethers.utils.solidityKeccak256(
+    ['uint256', 'uint256', 'uint256', 'uint256[]'],
+    [l2BridgeAddress, l1BridgeAddress, payload.length, payload],
+  );
+};
+
