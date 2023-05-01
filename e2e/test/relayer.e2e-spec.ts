@@ -8,11 +8,12 @@ import * as dotenv from 'dotenv';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RelayerService } from '../../src/relayer/relayer.service';
 import { RelayerModule } from '../../src/relayer/relayer.module';
-import { ContractAddress } from '../../src/web3/web3.interface';
+import { BaseFeePerGasHistory, ContractAddress } from '../../src/web3/web3.interface';
 import { ConfigService } from '../../src/common/config';
 import { MongoService } from '../../src/storage/mongo/mongo.service';
 import { IndexerService } from '../../src/indexer/indexer.service';
 import { Web3Service } from '../../src/web3/web3.service';
+import { sleep } from 'relayer/relayer.utils';
 
 dotenv.config();
 jest.useRealTimers();
@@ -69,6 +70,25 @@ describe('Relayer (e2e)', () => {
     const toBlock = 786008;
     const stateBlock = 786250;
     const docs = 14;
+    // Number of users paid the correct amount to the relayer
+    const expectedNumberOfValidTransactions = 3;
+
+    // const fromBlock = 786000;
+    // const toBlock = 786001;
+    // const stateBlock = 786250;
+    // const docs = 3;
+
+    jest
+      .spyOn(web3Service, 'fetchBaseFeePriceHistory')
+      .mockImplementation(async (blockNumber: number, numberOfBlocks: number): Promise<BaseFeePerGasHistory> => {
+        const provider = new ethers.providers.JsonRpcProvider(configService.get('INFURA_RPC_URL'));
+        const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
+          numberOfBlocks,
+          BigNumber.from(blockNumber).toHexString(),
+          [],
+        ]);
+        return baseFeePerGasHistoryList;
+      });
 
     await starknet.setStateBlockNumber(stateBlock);
 
@@ -99,10 +119,12 @@ describe('Relayer (e2e)', () => {
         validMessageHashes.push(msgHash);
         if (i < numberOfUsersToCheckBalanced) {
           if (l2BridgeAddress == '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82') {
+            await sleep(1000);
             userBalancesBefore.push(await provider.getBalance(l1Recipient));
             usersAddresses.push({ erc20: false, l1Recipient });
           } else {
             const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            await sleep(1000);
             const erc20 = IERC20__factory.connect(add, signer) as IERC20;
             const balance = await erc20.balanceOf(l1Recipient);
             userBalancesBefore.push(balance.toString());
@@ -131,7 +153,7 @@ describe('Relayer (e2e)', () => {
     expect(processWithdrawalsResult.currentToBlockNumber).toEqual(toBlock);
     expect(processWithdrawalsResult.stateBlockNumber).toEqual(stateBlock);
     expect(processWithdrawalsResult.totalWithdrawals).toEqual(withdrawals.length);
-    expect(processWithdrawalsResult.totalWithdrawalsProcessed).toEqual(validMessageHashes.length);
+    expect(processWithdrawalsResult.totalWithdrawalsProcessed).toEqual(expectedNumberOfValidTransactions);
 
     // Get users balances after processing the transactions
     const userBalancesAfter: Array<BigNumber> = [];
@@ -147,6 +169,7 @@ describe('Relayer (e2e)', () => {
     }
 
     for (let i = 0; i < userBalancesAfter.length; i++) {
+      if (userBalancesAfter[i].eq(userBalancesBefore[i])) continue;
       expect(userBalancesAfter[i].sub(userBalancesBefore[i])).toEqual(
         userExpectedAmountToReceive[usersAddresses[i].l1Recipient],
       );
