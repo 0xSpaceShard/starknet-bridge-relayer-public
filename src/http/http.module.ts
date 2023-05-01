@@ -7,9 +7,10 @@ import { METRICS_URL } from 'common/prometheus';
 import { SWAGGER_URL } from './common/swagger';
 import { ThrottlerModule, ThrottlerBehindProxyGuard } from './common/throttler';
 import { MetricsMiddleware } from './common/middleware';
+import { GasModule } from './gas/gas.module';
 
 @Module({
-  imports: [ThrottlerModule],
+  imports: [ThrottlerModule, GasModule],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard }],
 })
 export class HTTPModule {
