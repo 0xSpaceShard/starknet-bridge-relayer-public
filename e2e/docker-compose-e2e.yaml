@@ -44,6 +44,7 @@ services:
       INDEXER_URL: ${INDEXER_URL}
       RELAYER_L2_ADDRESS: ${RELAYER_L2_ADDRESS}
       RPC_URL: ${RPC_URL}
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
     command: ['/bin/bash', '-c', 'sleep 2000']
     depends_on:
       - mongo
