@@ -62,6 +62,7 @@ export class GasService {
       return gasCost;
     }
 
+    this.logger.log('Fetch base fee price history', { timestamp, ctimestamp, blockNumber });
     const feeHistory = await this.fetchBaseFeePriceHistory(
       blockNumber,
       blockNumber - this.getNumberOfBlocksToCalculateTheGasCost(),
@@ -123,33 +124,45 @@ export class GasService {
         for (let i = 0; i < len; i++) {
           let baseFeePerGasHistory: BaseFeePerGasHistory = await this.cacheManager.get(String(fromBlock));
           if (!baseFeePerGasHistory?.baseFeePerGas) {
-            this.logger.log('Fetch fee data', { lastBlockNumber, oldBlockNumber, fromBlock, limit });
             await sleep(500);
             if (fromBlock > currentBlockNumber) {
+              this.logger.log('Fetch fee data', {
+                id: 1,
+                lastBlockNumber,
+                oldBlockNumber,
+                fromBlock,
+                limit: lastBlockNumber % limit,
+              });
+              this.logger.log('Fetch fee data', {
+                i,
+                id: 1,
+                from: lastBlockNumber,
+                to: lastBlockNumber - (lastBlockNumber % limit),
+                limit: lastBlockNumber % limit,
+              });
               baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(
                 lastBlockNumber,
-                lastBlockNumber - (fromBlock - limit),
+                lastBlockNumber % limit,
               );
             } else {
+              this.logger.log('Fetch fee data', {
+                i,
+                id: 2,
+                from: fromBlock,
+                to: fromBlock - limit,
+                limit,
+              });
               baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(fromBlock, limit);
             }
-
             await this.cacheManager.set(String(fromBlock), baseFeePerGasHistory, CacheDuration24hInMs);
           }
-          const needtoClamp = baseFeePerGasHistory.baseFeePerGas.length != limit;
-          const clampTo = needtoClamp ? -1 : baseFeePerGasHistory.baseFeePerGas.length;
 
           if (mod > 0 && i == 0) {
-            feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(mod, clampTo));
+            feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(mod, limit));
           } else if (mod > 0 && i == len - 1) {
-            feeHistory.baseFees.push(
-              ...baseFeePerGasHistory.baseFeePerGas.slice(
-                0,
-                this.getNumberOfBlocksToCalculateTheGasCost() - feeHistory.baseFees.length,
-              ),
-            );
+            feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(0, lastBlockNumber % limit));
           } else {
-            feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(0, clampTo));
+            feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(0, limit));
           }
           fromBlock = fromBlock + limit;
         }
