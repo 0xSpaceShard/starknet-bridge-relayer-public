@@ -87,6 +87,11 @@ export class Web3Service {
     return baseFeePerGasHistoryList;
   };
 
+  getCurrentBlockNumber = async (): Promise<number> => {
+    const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
+    return await provider.getBlockNumber();
+  };
+
   async getProvider() {
     const providerURLs: Array<Provider> = getProviderURLs(this.configService);
     for (let i = 0; i < providerURLs.length; i++) {
