@@ -10,7 +10,7 @@ export class GasController {
   constructor(private gasService: GasService, private configService: ConfigService) {}
 
   @Get(':timestamp')
-  async getGasCostPerTimestamp(@Param() timestamp: number) {
+  async getGasCostPerTimestamp(@Param("timestamp") timestamp: number) {
     try {
       const gasCost = (await this.gasService.getGasCostPerTimestamp(timestamp)).toString();
       return {

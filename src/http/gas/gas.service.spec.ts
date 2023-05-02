@@ -75,6 +75,7 @@ describe('GasService', () => {
     const oldBlockNumber = 199000;
     const limit = 1000;
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
     jest.spyOn(web3Service, 'fetchBaseFeePriceHistory').mockImplementation(async (fromBlock: number, lim: number) => {
       expect(fromBlock).toEqual(startBlockNumber);
       expect(lim).toEqual(limit);
@@ -97,6 +98,7 @@ describe('GasService', () => {
     const oldBlockNumber = 199000;
     const limit = 500;
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
     jest
       .spyOn(web3Service, 'fetchBaseFeePriceHistory')
       .mockImplementationOnce(async (fromBlock: number, lim: number) => {
@@ -135,6 +137,7 @@ describe('GasService', () => {
     const limit = 500;
     const oldBlockNumberMod = oldBlockNumber % 500;
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
     jest
       .spyOn(web3Service, 'fetchBaseFeePriceHistory')
       .mockImplementationOnce(async (fromBlock: number, lim: number) => {
@@ -264,6 +267,7 @@ describe('GasService', () => {
     jest.spyOn(service, 'getLimit').mockReturnValueOnce(limit);
     jest.spyOn(service, 'fetchBlockNumberByTimestamp').mockReturnValue(Promise.resolve(startBlockNumber));
     jest.spyOn(service, 'getNumberOfBlocksToCalculateTheGasCost').mockReturnValue(limit);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
 
     jest
       .spyOn(web3Service, 'fetchBaseFeePriceHistory')
@@ -295,6 +299,40 @@ describe('GasService', () => {
     expect(avgGasCost1).toEqual(avgGasCost2);
   });
 
+  it('Success getGasCostPerTimestamp when current block number is bigger than the from block', async () => {
+    let startBlockNumber = 8000100;
+    let limit = 500;
+    jest.spyOn(service, 'getLimit').mockReturnValueOnce(limit);
+    jest.spyOn(service, 'fetchBlockNumberByTimestamp').mockReturnValue(Promise.resolve(startBlockNumber));
+    jest.spyOn(service, 'getNumberOfBlocksToCalculateTheGasCost').mockReturnValue(1000);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(8000120));
+
+    jest
+      .spyOn(web3Service, 'fetchBaseFeePriceHistory')
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        expect(fromBlock).toEqual(7999500);
+        expect(lim).toEqual(limit);
+        return BaseFeePriceHistoryMock_7999500_7999001;
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        expect(fromBlock).toEqual(8000000);
+        expect(lim).toEqual(limit);
+        return BaseFeePriceHistoryMock_8000000_7999501;
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        expect(fromBlock).toEqual(startBlockNumber);
+        expect(lim).toEqual(100);
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_8000500_8000001.baseFeePerGas.slice(0, 102),
+          gasUsedRatio: BaseFeePriceHistoryMock_8000500_8000001.gasUsedRatio,
+          oldestBlock: BaseFeePriceHistoryMock_8000500_8000001.oldestBlock,
+        };
+      });
+
+    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968);
+    expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
+  });
+
   it('Success getAverageGasPrice', async () => {
     jest.spyOn(service, 'getFeeShiftPercentage').mockReturnValue(0);
     let avgGasPrice = service.getAverageGasPrice(['1000000000000', '1000000000000', '1000000000000']);
@@ -303,5 +341,21 @@ describe('GasService', () => {
     jest.spyOn(service, 'getFeeShiftPercentage').mockReturnValue(20);
     avgGasPrice = service.getAverageGasPrice(['1000000000000', '1000000000000', '1000000000000']);
     expect(avgGasPrice.toString()).toEqual(BigNumber.from('1200000000000').toString());
+  });
+
+  it('Success fetchBaseFeePriceHistory', async () => {
+    const startBlockNumber = 200000;
+    const oldBlockNumber = 199000;
+    const limit = 1000;
+    jest.spyOn(service, 'getLimit').mockReturnValue(limit);
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockImplementation(async (): Promise<number> => {
+      throw 'Error to fetch block number';
+    });
+
+    try {
+      await service.fetchBaseFeePriceHistory(startBlockNumber, oldBlockNumber);
+    } catch (error) {
+      expect(error).toEqual('Error to fetch block number');
+    }
   });
 });

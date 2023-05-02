@@ -35,7 +35,12 @@ export class GasService {
   }
 
   getGasCostPerTimestamp = async (timestamp: number): Promise<BigNumber> => {
+    this.logger.log('Start calculate gas cost', { timestamp });
     const ctimestamp = clampTimestamp(timestamp);
+    if (!ctimestamp) {
+      this.logger.error('Invalid ctimestamp', { ctimestamp });
+      new Error('Invalid ctimestamp');
+    }
 
     // Block number
     let blockNumber: number = Number((await this.cacheManager.get(String(ctimestamp))) || 0);
@@ -45,10 +50,15 @@ export class GasService {
       await this.cacheManager.set(String(ctimestamp), blockNumber, CacheDuration24hInMs);
     }
 
+    if (!blockNumber) {
+      this.logger.error('Invalid block number', { blockNumber });
+      new Error('Invalid block number');
+    }
+
     // base fees
     let gasCost: BigNumber = BigNumber.from(((await this.cacheManager.get(String(blockNumber))) as String) || '0');
     if (gasCost.gt(0)) {
-      this.logger.log('Use in memory gas cost', { gasCost, blockNumber, ctimestamp, timestamp });
+      this.logger.log('Use in memory gas cost', { gasCost });
       return gasCost;
     }
 
@@ -56,6 +66,10 @@ export class GasService {
       blockNumber,
       blockNumber - this.getNumberOfBlocksToCalculateTheGasCost(),
     );
+
+    if (!feeHistory) {
+      throw new Error('Invalid fee history');
+    }
 
     gasCost = await this.calculateGasCost(feeHistory, GasCostPerWithdrawal);
     await this.cacheManager.set(String(blockNumber), gasCost.toString(), CacheDuration24hInMs);
@@ -98,12 +112,28 @@ export class GasService {
         let fromBlock = oldBlockNumber - mod + limit;
         const len = Math.ceil((lastBlockNumber - oldBlockNumber + mod) / limit);
 
+        let currentBlockNumber: number;
+        try {
+          currentBlockNumber = await this.web3Service.getCurrentBlockNumber();
+        } catch (error) {
+          this.logger.error('Can not get block number', { error });
+          throw new Error(`Can not get block number: ${error}`);
+        }
+
         for (let i = 0; i < len; i++) {
           let baseFeePerGasHistory: BaseFeePerGasHistory = await this.cacheManager.get(String(fromBlock));
           if (!baseFeePerGasHistory?.baseFeePerGas) {
             this.logger.log('Fetch fee data', { lastBlockNumber, oldBlockNumber, fromBlock, limit });
             await sleep(500);
-            baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(fromBlock, limit);
+            if (fromBlock > currentBlockNumber) {
+              baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(
+                lastBlockNumber,
+                lastBlockNumber - (fromBlock - limit),
+              );
+            } else {
+              baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(fromBlock, limit);
+            }
+
             await this.cacheManager.set(String(fromBlock), baseFeePerGasHistory, CacheDuration24hInMs);
           }
           const needtoClamp = baseFeePerGasHistory.baseFeePerGas.length != limit;
