@@ -80,7 +80,7 @@ export class Web3Service {
   fetchBaseFeePriceHistory = async (blockNumber: number, numberOfBlocks: number): Promise<BaseFeePerGasHistory> => {
     const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
     const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
-      numberOfBlocks + 1,
+      numberOfBlocks,
       BigNumber.from(blockNumber).toHexString(),
       [],
     ]);
