@@ -26,8 +26,8 @@ import { defaultAbiCoder } from 'ethers/lib/utils';
 
 @Injectable()
 export class RelayerService {
-  sleepAfterSuccessExec: number = 300000;
-  sleepAfterFailExec: number = 60000;
+  sleepAfterSuccessExec: number = 900000;
+  sleepAfterFailExec: number = 180000;
   chunk: number = 50;
   networkId: string;
   relayerAddress: string;
