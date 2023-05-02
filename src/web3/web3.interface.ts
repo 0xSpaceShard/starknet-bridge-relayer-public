@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber } from 'ethers';
 
 export interface NetworkContractAddress {
   mainnet: ContractAddress;
@@ -23,4 +23,10 @@ export interface MulticallRequest {
 export interface MulticallResponse {
   success: boolean;
   returnData: string;
+}
+
+export interface BaseFeePerGasHistory {
+  oldestBlock: string;
+  baseFeePerGas: Array<String>;
+  gasUsedRatio: Array<Number>;
 }

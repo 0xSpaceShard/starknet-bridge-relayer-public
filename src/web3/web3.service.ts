@@ -12,7 +12,7 @@ import {
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
 import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
-import { ContractAddress, MulticallRequest, Provider } from './web3.interface';
+import { BaseFeePerGasHistory, ContractAddress, MulticallRequest, Provider } from './web3.interface';
 import * as StarknetCoreABI from './abis/StarknetCore.json';
 import * as StarknetTokenBridgeABI from './abis/StarknetTokenBridge.json';
 
@@ -52,9 +52,9 @@ export class Web3Service {
     });
   }
 
-  async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {
+  async callWithdraw(bridgeAddress: string, amount: BigNumber, receiverL1: string) {
     const starknetTokenBridge = await this.getStarknetTokenBridgeContract(bridgeAddress);
-    await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
+    return await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
   }
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {
@@ -75,6 +75,21 @@ export class Web3Service {
   encodeBridgeToken = (functionName: string, params: any[]): string => {
     let iface = new ethers.utils.Interface(StarknetTokenBridgeABI);
     return iface.encodeFunctionData(functionName, params);
+  };
+
+  fetchBaseFeePriceHistory = async (blockNumber: number, numberOfBlocks: number): Promise<BaseFeePerGasHistory> => {
+    const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
+    const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
+      numberOfBlocks + 1,
+      BigNumber.from(blockNumber).toHexString(),
+      [],
+    ]);
+    return baseFeePerGasHistoryList;
+  };
+
+  getCurrentBlockNumber = async (): Promise<number> => {
+    const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
+    return await provider.getBlockNumber();
   };
 
   async getProvider() {

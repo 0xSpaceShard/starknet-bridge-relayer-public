@@ -14,17 +14,20 @@ import {
 import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
-import { getMessageHash } from './utils';
 import { ADDRESSES } from 'web3/web3.constants';
 import { BigNumber, ethers } from 'ethers';
 import { createMock } from '@golevelup/ts-jest';
 import { Withdrawal } from 'indexer/entities';
+import { getMessageHash } from './relayer.utils';
+import { GasService } from 'http/gas/gas.service';
+import { defaultAbiCoder } from 'ethers/lib/utils';
 
-describe.only('RelayerService', () => {
+describe('RelayerService', () => {
   let service: RelayerService;
   let web3Service: Web3Service;
   let indexerService: IndexerService;
   let mongoService: MongoService;
+  let gasService: GasService;
   const verbose = false;
 
   beforeEach(async () => {
@@ -33,6 +36,10 @@ describe.only('RelayerService', () => {
         RelayerService,
         ConfigService,
         PrometheusService,
+        {
+          provide: GasService,
+          useValue: createMock(),
+        },
         {
           provide: MongoService,
           useValue: createMock(),
@@ -80,6 +87,7 @@ describe.only('RelayerService', () => {
     web3Service = module.get<Web3Service>(Web3Service);
     indexerService = module.get<IndexerService>(IndexerService);
     mongoService = module.get<MongoService>(MongoService);
+    gasService = module.get<GasService>(GasService);
   });
 
   it('should be defined', () => {
@@ -173,8 +181,9 @@ describe.only('RelayerService', () => {
     const withdrawals = withdrawalsResponseMock;
     jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
     const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
 
-    const res = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+    const res = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
     expect(res.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
 
     // const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1('goerli');
@@ -195,8 +204,8 @@ describe.only('RelayerService', () => {
     const withdrawals = withdrawalsResponseMock;
     jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
     const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
-
-    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    const allMulticallRequests = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
@@ -243,8 +252,8 @@ describe.only('RelayerService', () => {
     const toBlock = 150;
     jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawalsResponseMock));
     const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
-
-    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    const allMulticallRequests = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
     // When limit = 2
     let limit = 2;
@@ -265,9 +274,7 @@ describe.only('RelayerService', () => {
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
       .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(0, limit) as any))
-      .mockReturnValueOnce(
-        Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(limit, 5) as any),
-      );
+      .mockReturnValueOnce(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse.slice(limit, 5) as any));
 
     viewMulticallResponse = await service.getListOfL2ToL1MessagesResult(allMulticallRequests, limit);
     expect(viewMulticallResponse.length).toEqual(allMulticallRequests.length);
@@ -279,8 +286,8 @@ describe.only('RelayerService', () => {
     const withdrawals = withdrawalsResponseMock;
     jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
     const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
-
-    const allMulticallRequests = service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    const allMulticallRequests = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
 
     jest
       .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
@@ -292,9 +299,7 @@ describe.only('RelayerService', () => {
     );
 
     for (let i = 0; i < viewMulticallResponse.length; i++) {
-      expect(viewMulticallResponse[i].returnData).toEqual(
-        canConsumeMessageOnL1MulticallViewResponse[i].returnData,
-      );
+      expect(viewMulticallResponse[i].returnData).toEqual(canConsumeMessageOnL1MulticallViewResponse[i].returnData);
     }
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
@@ -313,7 +318,6 @@ describe.only('RelayerService', () => {
     expect(allMulticallRequestsForMessagesCanBeConsumedOnL1.length).toEqual(2);
   });
 
-
   it('Success processWithdrawals', async () => {
     const expectedValues = [
       { fromBlock: 100, toBlock: 150, stateBlockNumber: 150 },
@@ -330,7 +334,7 @@ describe.only('RelayerService', () => {
           withdrawals: withdrawalsResponseMock,
         }),
       );
-
+      jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
       jest
         .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
         .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
@@ -348,6 +352,7 @@ describe.only('RelayerService', () => {
   it('Success consume messages on L1 with limit', async () => {
     let limit = 2;
     jest.spyOn(web3Service, 'callWithdrawMulticall').mockReturnValue(Promise.resolve(createMock()));
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
     jest
       .spyOn(service, '_consumeMessagesOnL1')
       .mockImplementation(async (multicall: Array<MulticallRequest>): Promise<ethers.ContractTransaction> => {
@@ -399,5 +404,71 @@ describe.only('RelayerService', () => {
         expect(error).toEqual(errorMessage);
       }
     });
+  });
+
+  it('Success checkIfAmountPaidIsValid', async () => {
+    jest.spyOn(gasService, 'getGasCostPerTimestamp').mockReturnValue(Promise.resolve(ethers.utils.parseEther('1')));
+    let isValid = await service.checkIfAmountPaidIsValid(withdrawalsResponseMock[0]);
+    expect(isValid).toEqual(false);
+
+    const err = new Error('Error to get gas cost');
+    jest
+      .spyOn(gasService, 'getGasCostPerTimestamp')
+      .mockImplementation(async (timestamp: number): Promise<BigNumber> => {
+        throw err;
+      });
+
+    try {
+      isValid = await service.checkIfAmountPaidIsValid(withdrawalsResponseMock[0]);
+    } catch (error) {
+      expect(error).toEqual(err);
+    }
+  });
+
+  it('Success checkIfAmountPaidIsValid', async () => {
+    const fromBlock = 100;
+    const toBlock = 150;
+    const withdrawals = withdrawalsResponseMock;
+    jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
+    const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    const allMulticallRequests = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
+
+    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      250,
+    );
+
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      expect(viewMulticallResponse[i].returnData).toEqual(canConsumeMessageOnL1MulticallViewResponse[i].returnData);
+    }
+
+    const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
+      viewMulticallResponse,
+      allMulticallRequests,
+    );
+
+    const multicallData = allMulticallRequestsForMessagesCanBeConsumedOnL1[0];
+    const calldata = multicallData.callData.slice(10);
+    expect(calldata.length).toEqual(128);
+    const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + calldata);
+    jest
+      .spyOn(web3Service, 'callWithdraw')
+      .mockImplementation(
+        async (bridgeL1: string, amount: BigNumber, receiver: string): Promise<ethers.ContractTransaction> => {
+          expect(bridgeL1).toEqual(multicallData.target);
+          expect(receiver).toEqual(data[1]);
+          expect(receiver.toLowerCase()).toEqual(withdrawals[0].l1Recipient.replace("000000000000000000000000", ""));
+          expect(amount).toEqual(data[0]);
+          expect(amount.toString()).toEqual(withdrawals[0].amount);
+          return createMock<ethers.ContractTransaction>();
+        },
+      );
+    expect(await service.consumeMessagesOnL1([multicallData], 50)).toEqual(0);
   });
 });

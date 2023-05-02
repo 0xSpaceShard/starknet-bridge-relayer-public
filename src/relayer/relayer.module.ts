@@ -6,9 +6,10 @@ import { MongoModule } from 'storage/mongo/mongo.module';
 import { IndexerModule } from 'indexer/indexer.module';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
+import { GasModule } from 'http/gas/gas.module';
 
 @Module({
-  imports: [LoggerModule, ConfigModule, Web3Module, MongoModule, IndexerModule, PrometheusModule],
+  imports: [LoggerModule, ConfigModule, Web3Module, MongoModule, IndexerModule, PrometheusModule, GasModule],
   providers: [RelayerService],
   exports: [RelayerService]
 })

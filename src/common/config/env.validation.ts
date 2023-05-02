@@ -70,6 +70,9 @@ export class EnvironmentVariables {
   @Min(1)
   @Transform(toNumber({ defaultValue: 1000000000 }))
   MAX_PRIORITY_FEE_PER_GAS: number;
+
+  @IsString()
+  ETHERSCAN_API_KEY: string;
 }
 
 export function validate(config: Record<string, unknown>) {

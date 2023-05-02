@@ -14,13 +14,15 @@ import {
   l2BridgeAddressToL1,
 } from './relayer.constants';
 import { MongoService } from 'storage/mongo/mongo.service';
-import { Withdrawal } from 'indexer/entities';
+import { Transfer, Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
-import { callWithRetry, sleep } from './relayer.utils';
+import { callWithRetry, getMessageHash, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
-import { getMessageHash } from './utils';
 import { ethers, BigNumber } from 'ethers';
+import { GasService } from 'http/gas/gas.service';
+import { CheckPointSizeMs } from 'http/gas/gas.constants';
+import { defaultAbiCoder } from 'ethers/lib/utils';
 
 @Injectable()
 export class RelayerService {
@@ -39,6 +41,7 @@ export class RelayerService {
     private mongoService: MongoService,
     private indexerService: IndexerService,
     private readonly prometheusService: PrometheusService,
+    private readonly gasService: GasService,
   ) {
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
@@ -99,7 +102,7 @@ export class RelayerService {
 
       if (requestWithdrawalAtBlocks.withdrawals.length > 0) {
         // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
-        const allMulticallRequests: Array<MulticallRequest> = this.getMulticallRequests(
+        const allMulticallRequests: Array<MulticallRequest> = await this.getMulticallRequests(
           requestWithdrawalAtBlocks.withdrawals,
         );
 
@@ -121,7 +124,6 @@ export class RelayerService {
     }
 
     totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
-    this.logger.log('Create transactions', { totalWithdrawalsProcessed });
 
     // Consume the messages.
     if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
@@ -204,7 +206,7 @@ export class RelayerService {
     return listRequestWithdrawalsAtBlocks;
   }
 
-  getMulticallRequests(withdrawals: Array<Withdrawal>): Array<MulticallRequest> {
+  async getMulticallRequests(withdrawals: Array<Withdrawal>): Promise<Array<MulticallRequest>> {
     const multicallRequests: Array<MulticallRequest> = [];
     const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
 
@@ -212,7 +214,7 @@ export class RelayerService {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
 
-      if (l1BridgeAddress) {
+      if (l1BridgeAddress && (await this.checkIfAmountPaidIsValid(withdrawal))) {
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -259,15 +261,25 @@ export class RelayerService {
   }
 
   async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>, limit: number): Promise<number> {
-    const lenght = Math.ceil(multicallRequest.length / limit);
-    for (let i = 0; i < lenght; i++) {
-      const from = i * limit;
-      const to = Math.min((i + 1) * limit, multicallRequest.length);
-      const multicallRequests = multicallRequest.slice(from, to);
-      const tx = await this._consumeMessagesOnL1(multicallRequests);
+    if (multicallRequest.length === 1) {
+      const req = multicallRequest[0];
+      const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
+      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1]);
       await tx.wait();
+      this.logger.log("Call withdraw")
+      return 0;
+    } else {
+      const lenght = Math.ceil(multicallRequest.length / limit);
+      for (let i = 0; i < lenght; i++) {
+        const from = i * limit;
+        const to = Math.min((i + 1) * limit, multicallRequest.length);
+        const multicallRequests = multicallRequest.slice(from, to);
+        const tx = await this._consumeMessagesOnL1(multicallRequests);
+        this.logger.log("Call multicall")
+        await tx.wait();
+      }
+      return lenght;
     }
-    return lenght;
   }
 
   async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>): Promise<ethers.ContractTransaction> {
@@ -373,5 +385,37 @@ export class RelayerService {
 
   async callWithRetry({ callback, errorCallback }: { callback: Function; errorCallback: Function }) {
     return await callWithRetry(3, 2000, callback, errorCallback);
+  }
+
+  async checkIfAmountPaidIsValid(withdrawal: Withdrawal): Promise<boolean> {
+    let amountPaid: BigNumber = BigNumber.from('0');
+    for (let i = 0; i < withdrawal.transfers.length; i++) {
+      const transfer = withdrawal.transfers[i];
+      if (transfer.to === this.relayerAddress) {
+        amountPaid = BigNumber.from(transfer.value);
+        break;
+      }
+    }
+
+    if (amountPaid.eq(0)) {
+      return false;
+    }
+
+    let timestamp = new Date(withdrawal.timestamp).getTime() / 1000;
+
+    const validationAttempts = 2;
+    for (let i = 0; i < validationAttempts; i++) {
+      try {
+        const gasCost = await this.gasService.getGasCostPerTimestamp(timestamp);
+        if (amountPaid.gte(gasCost)) {
+          return true;
+        }
+      } catch (error: any) {
+        this.logger.error(error.toString());
+        throw error;
+      }
+      timestamp -= CheckPointSizeMs;
+    }
+    return false;
   }
 }
