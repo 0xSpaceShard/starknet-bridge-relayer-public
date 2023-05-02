@@ -52,9 +52,9 @@ export class Web3Service {
     });
   }
 
-  async callWithdraw(bridgeAddress: string, receiverL1: string, amount: BigNumber) {
+  async callWithdraw(bridgeAddress: string, amount: BigNumber, receiverL1: string) {
     const starknetTokenBridge = await this.getStarknetTokenBridgeContract(bridgeAddress);
-    await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
+    return await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
   }
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {

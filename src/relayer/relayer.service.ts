@@ -22,6 +22,7 @@ import { PrometheusService } from 'common/prometheus';
 import { ethers, BigNumber } from 'ethers';
 import { GasService } from 'http/gas/gas.service';
 import { CheckPointSizeMs } from 'http/gas/gas.constants';
+import { defaultAbiCoder } from 'ethers/lib/utils';
 
 @Injectable()
 export class RelayerService {
@@ -260,15 +261,25 @@ export class RelayerService {
   }
 
   async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>, limit: number): Promise<number> {
-    const lenght = Math.ceil(multicallRequest.length / limit);
-    for (let i = 0; i < lenght; i++) {
-      const from = i * limit;
-      const to = Math.min((i + 1) * limit, multicallRequest.length);
-      const multicallRequests = multicallRequest.slice(from, to);
-      const tx = await this._consumeMessagesOnL1(multicallRequests);
+    if (multicallRequest.length === 1) {
+      const req = multicallRequest[0];
+      const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
+      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1]);
       await tx.wait();
+      this.logger.log("Call withdraw")
+      return 0;
+    } else {
+      const lenght = Math.ceil(multicallRequest.length / limit);
+      for (let i = 0; i < lenght; i++) {
+        const from = i * limit;
+        const to = Math.min((i + 1) * limit, multicallRequest.length);
+        const multicallRequests = multicallRequest.slice(from, to);
+        const tx = await this._consumeMessagesOnL1(multicallRequests);
+        this.logger.log("Call multicall")
+        await tx.wait();
+      }
+      return lenght;
     }
-    return lenght;
   }
 
   async _consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>): Promise<ethers.ContractTransaction> {

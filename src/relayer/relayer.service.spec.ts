@@ -20,6 +20,7 @@ import { createMock } from '@golevelup/ts-jest';
 import { Withdrawal } from 'indexer/entities';
 import { getMessageHash } from './relayer.utils';
 import { GasService } from 'http/gas/gas.service';
+import { defaultAbiCoder } from 'ethers/lib/utils';
 
 describe('RelayerService', () => {
   let service: RelayerService;
@@ -406,9 +407,7 @@ describe('RelayerService', () => {
   });
 
   it('Success checkIfAmountPaidIsValid', async () => {
-    jest
-      .spyOn(gasService, 'getGasCostPerTimestamp')
-      .mockReturnValue(Promise.resolve(ethers.utils.parseEther('1')));
+    jest.spyOn(gasService, 'getGasCostPerTimestamp').mockReturnValue(Promise.resolve(ethers.utils.parseEther('1')));
     let isValid = await service.checkIfAmountPaidIsValid(withdrawalsResponseMock[0]);
     expect(isValid).toEqual(false);
 
@@ -416,7 +415,7 @@ describe('RelayerService', () => {
     jest
       .spyOn(gasService, 'getGasCostPerTimestamp')
       .mockImplementation(async (timestamp: number): Promise<BigNumber> => {
-        throw err 
+        throw err;
       });
 
     try {
@@ -424,5 +423,52 @@ describe('RelayerService', () => {
     } catch (error) {
       expect(error).toEqual(err);
     }
+  });
+
+  it('Success checkIfAmountPaidIsValid', async () => {
+    const fromBlock = 100;
+    const toBlock = 150;
+    const withdrawals = withdrawalsResponseMock;
+    jest.spyOn(indexerService, 'getWithdraws').mockReturnValue(Promise.resolve(withdrawals));
+    const withdrawalAtBlocksResponse = await service.getRequestWithdrawalAtBlocks(fromBlock, toBlock);
+    jest.spyOn(service, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    const allMulticallRequests = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
+
+    jest
+      .spyOn(web3Service, 'canConsumeMessageOnL1MulticallView')
+      .mockReturnValue(Promise.resolve(canConsumeMessageOnL1MulticallViewResponse as any));
+
+    const viewMulticallResponse: Array<MulticallResponse> = await service.getListOfL2ToL1MessagesResult(
+      allMulticallRequests,
+      250,
+    );
+
+    for (let i = 0; i < viewMulticallResponse.length; i++) {
+      expect(viewMulticallResponse[i].returnData).toEqual(canConsumeMessageOnL1MulticallViewResponse[i].returnData);
+    }
+
+    const allMulticallRequestsForMessagesCanBeConsumedOnL1 = service.getListOfValidMessagesToConsumedOnL1(
+      withdrawalAtBlocksResponse.withdrawals,
+      viewMulticallResponse,
+      allMulticallRequests,
+    );
+
+    const multicallData = allMulticallRequestsForMessagesCanBeConsumedOnL1[0];
+    const calldata = multicallData.callData.slice(10);
+    expect(calldata.length).toEqual(128);
+    const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + calldata);
+    jest
+      .spyOn(web3Service, 'callWithdraw')
+      .mockImplementation(
+        async (bridgeL1: string, amount: BigNumber, receiver: string): Promise<ethers.ContractTransaction> => {
+          expect(bridgeL1).toEqual(multicallData.target);
+          expect(receiver).toEqual(data[1]);
+          expect(receiver.toLowerCase()).toEqual(withdrawals[0].l1Recipient.replace("000000000000000000000000", ""));
+          expect(amount).toEqual(data[0]);
+          expect(amount.toString()).toEqual(withdrawals[0].amount);
+          return createMock<ethers.ContractTransaction>();
+        },
+      );
+    expect(await service.consumeMessagesOnL1([multicallData], 50)).toEqual(0);
   });
 });

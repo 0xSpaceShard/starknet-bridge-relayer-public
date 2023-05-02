@@ -55,7 +55,7 @@ describe('Relayer (e2e)', () => {
     await moduleFixture.close();
   });
 
-  it('Consume valid transactions', async () => {
+  it('Consume valid multiple transactions', async () => {
     // const fromBlock = 786000;
     // const toBlock = 786500;
     // const stateBlock = 786550;
@@ -154,6 +154,112 @@ describe('Relayer (e2e)', () => {
     expect(processWithdrawalsResult.stateBlockNumber).toEqual(stateBlock);
     expect(processWithdrawalsResult.totalWithdrawals).toEqual(withdrawals.length);
     expect(processWithdrawalsResult.totalWithdrawalsProcessed).toEqual(expectedNumberOfValidTransactions);
+
+    // Get users balances after processing the transactions
+    const userBalancesAfter: Array<BigNumber> = [];
+    for (let i = 0; i < usersAddresses.length; i++) {
+      if (usersAddresses[i].erc20) {
+        const erc20 = IERC20__factory.connect(usersAddresses[i].erc20address, signer) as IERC20;
+        const balance = await erc20.balanceOf(usersAddresses[i].l1Recipient);
+        userBalancesAfter.push(balance);
+      } else {
+        const balance = await provider.getBalance(usersAddresses[i].l1Recipient);
+        userBalancesAfter.push(balance);
+      }
+    }
+
+    for (let i = 0; i < userBalancesAfter.length; i++) {
+      if (userBalancesAfter[i].eq(userBalancesBefore[i])) continue;
+      expect(userBalancesAfter[i].sub(userBalancesBefore[i])).toEqual(
+        userExpectedAmountToReceive[usersAddresses[i].l1Recipient],
+      );
+    }
+    expect((await mongoService.getLastProcessedBlock()).blockNumber).toEqual(toBlock);
+  });
+
+  it('Consume valid single transactions', async () => {
+    const fromBlock = 786001;
+    const toBlock = 786002;
+    const stateBlock = 786250;
+    const docs = 1;
+
+    jest.spyOn(relayerService, 'checkIfAmountPaidIsValid').mockReturnValue(Promise.resolve(true));
+    jest
+      .spyOn(web3Service, 'fetchBaseFeePriceHistory')
+      .mockImplementation(async (blockNumber: number, numberOfBlocks: number): Promise<BaseFeePerGasHistory> => {
+        const provider = new ethers.providers.JsonRpcProvider(configService.get('INFURA_RPC_URL'));
+        const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
+          numberOfBlocks,
+          BigNumber.from(blockNumber).toHexString(),
+          [],
+        ]);
+        return baseFeePerGasHistoryList;
+      });
+
+    await starknet.setStateBlockNumber(stateBlock);
+
+    const withdrawals: WithdrawalDoc[] = decodeBSONFile(
+      './e2e/data/dump/starknet_bridge_indexer/withdraw.bson',
+      docs,
+      0,
+    );
+
+    const allMessageHashes = [];
+    const validMessageHashes = [];
+    const usersAddresses = [];
+    const userBalancesBefore = [];
+    const userExpectedAmountToReceive: any = {};
+    let numberOfUsersToCheckBalanced = 1; // to avoid rate limiting
+
+    {
+      for (let i = 0; i < docs; i++) {
+        const withdraw = withdrawals[i];
+        const l1Recipient = withdraw.l1_recipient.toString('hex').replace('000000000000000000000000', '0x');
+        const l2BridgeAddress = withdraw.bridge_address.toString('hex');
+        const l1BridgeAddress = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1BridgeAddress;
+        const amount = BigNumber.from('0x' + withdraw.amount.toString('hex'));
+
+        const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
+        allMessageHashes.push(msgHash);
+
+        validMessageHashes.push(msgHash);
+        if (i < numberOfUsersToCheckBalanced) {
+          if (l2BridgeAddress == '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82') {
+            await sleep(1000);
+            userBalancesBefore.push(await provider.getBalance(l1Recipient));
+            usersAddresses.push({ erc20: false, l1Recipient });
+          } else {
+            const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            await sleep(1000);
+            const erc20 = IERC20__factory.connect(add, signer) as IERC20;
+            const balance = await erc20.balanceOf(l1Recipient);
+            userBalancesBefore.push(balance.toString());
+            usersAddresses.push({ erc20: true, l1Recipient, erc20address: add });
+          }
+        }
+        if (!userExpectedAmountToReceive[l1Recipient]) {
+          userExpectedAmountToReceive[l1Recipient] = amount;
+        } else {
+          userExpectedAmountToReceive[l1Recipient] = userExpectedAmountToReceive[l1Recipient].add(amount);
+        }
+      }
+
+      await starknet.connect(signer).deleteMessage(allMessageHashes);
+      await starknet.connect(signer).addMessage(validMessageHashes);
+    }
+    // Process transactions
+    const processWithdrawalsResult = await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
+    if (docs > NumberOfWithdrawalsToProcessPerTransaction) {
+      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(
+        toBlock - NumberOfWithdrawalsToProcessPerTransaction,
+      );
+    } else {
+      expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(fromBlock);
+    }
+    expect(processWithdrawalsResult.currentToBlockNumber).toEqual(toBlock);
+    expect(processWithdrawalsResult.stateBlockNumber).toEqual(stateBlock);
+    expect(processWithdrawalsResult.totalWithdrawals).toEqual(docs);
+    expect(processWithdrawalsResult.totalWithdrawalsProcessed).toEqual(docs);
 
     // Get users balances after processing the transactions
     const userBalancesAfter: Array<BigNumber> = [];
