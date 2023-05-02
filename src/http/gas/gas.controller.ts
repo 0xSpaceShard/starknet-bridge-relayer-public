@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, InternalServerErrorException, Param, ServiceUnavailableException } from '@nestjs/common';
 import { GasService } from './gas.service';
 import { ConfigService } from 'common/config';
 
@@ -23,7 +23,7 @@ export class GasController {
         },
       };
     } catch (error) {
-      throw new ServiceUnavailableException();
+      throw new InternalServerErrorException();
     }
   }
 }

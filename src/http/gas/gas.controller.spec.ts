@@ -58,7 +58,7 @@ describe('GasController', () => {
     try {
       await controller.getGasCostPerTimestamp(timestamp);
     } catch (error) {
-      expect(error.status).toEqual(503);
+      expect(error.status).toEqual(500);
     }
   });
 });
