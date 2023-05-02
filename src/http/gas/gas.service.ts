@@ -124,15 +124,8 @@ export class GasService {
         for (let i = 0; i < len; i++) {
           let baseFeePerGasHistory: BaseFeePerGasHistory = await this.cacheManager.get(String(fromBlock));
           if (!baseFeePerGasHistory?.baseFeePerGas) {
-            await sleep(500);
+            await sleep(250);
             if (fromBlock > currentBlockNumber) {
-              this.logger.log('Fetch fee data', {
-                id: 1,
-                lastBlockNumber,
-                oldBlockNumber,
-                fromBlock,
-                limit: lastBlockNumber % limit,
-              });
               this.logger.log('Fetch fee data', {
                 i,
                 id: 1,
@@ -153,8 +146,15 @@ export class GasService {
                 limit,
               });
               baseFeePerGasHistory = await this.web3Service.fetchBaseFeePriceHistory(fromBlock, limit);
+              await this.cacheManager.set(String(fromBlock), baseFeePerGasHistory, CacheDuration24hInMs);
             }
-            await this.cacheManager.set(String(fromBlock), baseFeePerGasHistory, CacheDuration24hInMs);
+          } else {
+            this.logger.log('Use on memory fee data', {
+              i,
+              from: fromBlock,
+              to: fromBlock - limit,
+              limit,
+            });
           }
 
           if (mod > 0 && i == 0) {
