@@ -73,6 +73,9 @@ export class EnvironmentVariables {
 
   @IsString()
   ETHERSCAN_API_KEY: string;
+
+  @IsString()
+  DISCORD_WEBHOOK_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {
