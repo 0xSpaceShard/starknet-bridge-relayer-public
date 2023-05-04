@@ -8,6 +8,7 @@ import {
 } from './relayer.interface';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import {
+  BufferMaxDurationMs,
   NumberOfMessageToProcessPerTransaction,
   NumberOfWithdrawalsToProcessPerTransaction,
   ZeroBytes,
@@ -21,13 +22,13 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { ethers, BigNumber } from 'ethers';
 import { GasService } from 'http/gas/gas.service';
-import { CheckPointSizeMs } from 'http/gas/gas.constants';
+import { CheckPointSizeMs, GasCostMultiplePerWithdrawal, GasCostPerWithdrawal } from 'http/gas/gas.constants';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 
 @Injectable()
 export class RelayerService {
   sleepAfterSuccessExec: number = 900000;
-  sleepAfterFailExec: number = 180000;
+  sleepAfterFailExec: number = 600000;
   chunk: number = 50;
   networkId: string;
   relayerAddress: string;
@@ -79,6 +80,7 @@ export class RelayerService {
     let totalWithdrawals = 0;
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
+    let totalGasPaid: BigNumber = BigNumber.from('0');
 
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
@@ -102,9 +104,10 @@ export class RelayerService {
 
       if (requestWithdrawalAtBlocks.withdrawals.length > 0) {
         // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
-        const allMulticallRequests: Array<MulticallRequest> = await this.getMulticallRequests(
+        const { multicallRequests: allMulticallRequests, totalPaid } = await this.getMulticallRequests(
           requestWithdrawalAtBlocks.withdrawals,
         );
+        totalGasPaid = totalPaid;
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
@@ -124,9 +127,10 @@ export class RelayerService {
     }
 
     totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
+    const canExec = await this.checkIfGasCostCoverTheTransaction(totalGasPaid, totalWithdrawalsProcessed);
 
     // Consume the messages.
-    if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0) {
+    if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0 && canExec) {
       await this.consumeMessagesOnL1(
         allMulticallRequestsForMessagesCanBeConsumedOnL1,
         NumberOfWithdrawalsToProcessPerTransaction,
@@ -206,7 +210,10 @@ export class RelayerService {
     return listRequestWithdrawalsAtBlocks;
   }
 
-  async getMulticallRequests(withdrawals: Array<Withdrawal>): Promise<Array<MulticallRequest>> {
+  async getMulticallRequests(
+    withdrawals: Array<Withdrawal>,
+  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber }> {
+    let totalPaid: BigNumber = BigNumber.from('0');
     const multicallRequests: Array<MulticallRequest> = [];
     const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
 
@@ -214,7 +221,9 @@ export class RelayerService {
       const withdrawal = withdrawals[i];
       const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
 
-      if (l1BridgeAddress && (await this.checkIfAmountPaidIsValid(withdrawal))) {
+      const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
+      if (l1BridgeAddress && status) {
+        totalPaid = totalPaid.add(amount);
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -223,7 +232,7 @@ export class RelayerService {
         });
       }
     }
-    return multicallRequests;
+    return { multicallRequests, totalPaid };
   }
 
   getListOfValidMessagesToConsumedOnL1(
@@ -266,7 +275,7 @@ export class RelayerService {
       const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
       const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1]);
       await tx.wait();
-      this.logger.log("Call withdraw")
+      this.logger.log('Call withdraw');
       return 0;
     } else {
       const lenght = Math.ceil(multicallRequest.length / limit);
@@ -275,7 +284,7 @@ export class RelayerService {
         const to = Math.min((i + 1) * limit, multicallRequest.length);
         const multicallRequests = multicallRequest.slice(from, to);
         const tx = await this._consumeMessagesOnL1(multicallRequests);
-        this.logger.log("Call multicall")
+        this.logger.log('Call multicall');
         await tx.wait();
       }
       return lenght;
@@ -387,7 +396,7 @@ export class RelayerService {
     return await callWithRetry(3, 2000, callback, errorCallback);
   }
 
-  async checkIfAmountPaidIsValid(withdrawal: Withdrawal): Promise<boolean> {
+  async checkIfAmountPaidIsValid(withdrawal: Withdrawal): Promise<{ status: boolean; amount: BigNumber }> {
     let amountPaid: BigNumber = BigNumber.from('0');
     for (let i = 0; i < withdrawal.transfers.length; i++) {
       const transfer = withdrawal.transfers[i];
@@ -398,7 +407,7 @@ export class RelayerService {
     }
 
     if (amountPaid.eq(0)) {
-      return false;
+      return { status: false, amount: BigNumber.from('0') };
     }
 
     let timestamp = new Date(withdrawal.timestamp).getTime() / 1000;
@@ -408,7 +417,7 @@ export class RelayerService {
       try {
         const gasCost = await this.gasService.getGasCostPerTimestamp(timestamp);
         if (amountPaid.gte(gasCost)) {
-          return true;
+          return { status: true, amount: gasCost };
         }
       } catch (error: any) {
         this.logger.error(error.toString());
@@ -416,6 +425,25 @@ export class RelayerService {
       }
       timestamp -= CheckPointSizeMs;
     }
-    return false;
+    return { status: false, amount: BigNumber.from('0') };
   }
+
+  checkIfGasCostCoverTheTransaction = async (totalPaid: BigNumber, numberOfWithdrawals: number): Promise<boolean> => {
+    if (numberOfWithdrawals === 0) return false;
+
+    const currentGasPrice = await this.web3Service.getCurrentGasPrice();
+    const currentCost = currentGasPrice
+      .mul(numberOfWithdrawals === 1 ? GasCostPerWithdrawal : GasCostMultiplePerWithdrawal)
+      .mul(numberOfWithdrawals);
+
+    if (currentCost.lte(totalPaid)) return true;
+
+    this.logger.warn('The total gas cost paid can not cover the transaction cost, sleep', {
+      currentCost,
+      totalPaid,
+      currentGasPrice,
+      numberOfWithdrawals,
+    });
+    throw new Error('The total gas cost paid can not cover the transaction cost, sleep');
+  };
 }

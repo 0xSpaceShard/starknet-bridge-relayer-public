@@ -92,6 +92,11 @@ export class Web3Service {
     return await provider.getBlockNumber();
   };
 
+  getCurrentGasPrice = async (): Promise<BigNumber> => {
+    const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
+    return await provider.getGasPrice();
+  };
+
   async getProvider() {
     const providerURLs: Array<Provider> = getProviderURLs(this.configService);
     for (let i = 0; i < providerURLs.length; i++) {

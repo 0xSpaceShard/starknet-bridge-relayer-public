@@ -105,3 +105,5 @@ export const l2BridgeAddressToL1 = (network: string) => {
       return l2BridgeAddressToL1Goerli;
   }
 };
+
+export const BufferMaxDurationMs = 86400000
