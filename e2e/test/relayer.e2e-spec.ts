@@ -56,6 +56,7 @@ describe('Relayer (e2e)', () => {
   });
 
   it('Consume valid multiple transactions', async () => {
+    jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('1000000000')));
     // const fromBlock = 786000;
     // const toBlock = 786500;
     // const stateBlock = 786550;
@@ -398,17 +399,15 @@ describe('Relayer (e2e)', () => {
       await starknet.connect(signer).addMessage(validMessageHashes);
     }
 
-    jest.spyOn(relayerService, 'getGasRetryLimit').mockReturnValue(1);
     // Try to consume the withdrawals but it fails because the network fee is high
     try {
       await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
     } catch (error) {
-      expect(relayerService.gasCostRetry).toEqual(1);
       expect(error).toEqual(new Error('The total gas cost paid can not cover the transaction cost, sleep'));
     }
 
+    jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('1000000000')));
     const processWithdrawalsResult = await relayerService.processWithdrawals(fromBlock, toBlock, stateBlock);
-    expect(relayerService.gasCostRetry).toEqual(0);
 
     if (docs > NumberOfWithdrawalsToProcessPerTransaction) {
       expect(processWithdrawalsResult.currentFromBlockNumber).toEqual(

@@ -523,7 +523,6 @@ describe('RelayerService', () => {
         expect(error).toEqual(new Error('The total gas cost paid can not cover the transaction cost, sleep'));
       }
     }
-    expect(service.gasCostRetry).toEqual(10);
 
     status = await service.checkIfGasCostCoverTheTransaction(
       BigNumber.from('21000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
@@ -531,29 +530,5 @@ describe('RelayerService', () => {
     );
 
     expect(status).toEqual(true);
-    expect(service.gasCostRetry).toEqual(0);
-
-    jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('20000000000')));
-    for (let i = 0; i < 10; i++) {
-      try {
-        if (i == 5) {
-          expect(service.gasCostRetry).toEqual(5);
-          await service.checkIfGasCostCoverTheTransaction(
-            BigNumber.from('30000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
-            10,
-          );
-          break
-        } else {
-          await service.checkIfGasCostCoverTheTransaction(
-            BigNumber.from('10000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
-            10,
-          );
-          expect(1).toEqual(0);
-        }
-      } catch (error) {
-        expect(error).toEqual(new Error('The total gas cost paid can not cover the transaction cost, sleep'));
-      }
-    }
-    expect(service.gasCostRetry).toEqual(0);
   });
 });

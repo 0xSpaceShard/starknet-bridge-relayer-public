@@ -33,7 +33,6 @@ export class RelayerService {
   networkId: string;
   relayerAddress: string;
   firstBlock: number;
-  public gasCostRetry: number = 0;
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
@@ -437,23 +436,14 @@ export class RelayerService {
       .mul(numberOfWithdrawals === 1 ? GasCostPerWithdrawal : GasCostMultiplePerWithdrawal)
       .mul(numberOfWithdrawals);
 
-    if (currentCost.lte(totalPaid) || this.gasCostRetry >= this.getGasRetryLimit()) {
-      this.gasCostRetry = 0;
-      return true;
-    }
-    this.gasCostRetry++;
+    if (currentCost.lte(totalPaid)) return true;
 
     this.logger.warn('The total gas cost paid can not cover the transaction cost, sleep', {
       currentCost,
       totalPaid,
       currentGasPrice,
       numberOfWithdrawals,
-      gasCostRetry: this.gasCostRetry,
     });
     throw new Error('The total gas cost paid can not cover the transaction cost, sleep');
-  };
-
-  getGasRetryLimit = (): number => {
-    return BufferMaxDurationMs / this.sleepAfterFailExec;
   };
 }
