@@ -106,4 +106,4 @@ export const l2BridgeAddressToL1 = (network: string) => {
   }
 };
 
-export const BufferMaxDurationMs = 86400000
+export const MinimumEthBalance = 1e17 // 0.1 ETH

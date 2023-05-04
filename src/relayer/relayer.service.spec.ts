@@ -22,6 +22,8 @@ import { getMessageHash } from './relayer.utils';
 import { GasService } from 'http/gas/gas.service';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { GasCostMultiplePerWithdrawal } from 'http/gas/gas.constants';
+import { RelayerNotifications } from './notification/notifications';
+import { DiscordService } from 'notification/discord/discord.service';
 
 describe('RelayerService', () => {
   let service: RelayerService;
@@ -64,6 +66,14 @@ describe('RelayerService', () => {
         },
         {
           provide: IndexerService,
+          useValue: createMock(),
+        },
+        {
+          provide: RelayerNotifications,
+          useValue: createMock(),
+        },
+        {
+          provide: DiscordService,
           useValue: createMock(),
         },
         {
@@ -339,6 +349,9 @@ describe('RelayerService', () => {
   });
 
   it('Success processWithdrawals', async () => {
+    jest.spyOn(RelayerNotifications, "emitHighNetworkFees").mockImplementation()
+    jest.spyOn(RelayerNotifications, "emitLowRelayerBalance").mockImplementation()
+    jest.spyOn(RelayerNotifications, "emitWithdrawalsProcessed").mockImplementation()
     const expectedValues = [
       { fromBlock: 100, toBlock: 150, stateBlockNumber: 150 },
       { fromBlock: 150, toBlock: 170, stateBlockNumber: 170 },
@@ -502,13 +515,13 @@ describe('RelayerService', () => {
 
   it('Success checkIfGasCostCoverTheTransaction', async () => {
     jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('10000000000')));
-    let status = await service.checkIfGasCostCoverTheTransaction(
+    let { status } = await service.checkIfGasCostCoverTheTransaction(
       BigNumber.from('20000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
       10,
     );
     expect(status).toEqual(true);
 
-    status = await service.checkIfGasCostCoverTheTransaction(BigNumber.from('0'), 0);
+    ({ status } = await service.checkIfGasCostCoverTheTransaction(BigNumber.from('0'), 0));
     expect(status).toEqual(false);
 
     jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('20000000000')));
@@ -524,10 +537,10 @@ describe('RelayerService', () => {
       }
     }
 
-    status = await service.checkIfGasCostCoverTheTransaction(
+    ({ status } = await service.checkIfGasCostCoverTheTransaction(
       BigNumber.from('21000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
       10,
-    );
+    ));
 
     expect(status).toEqual(true);
   });

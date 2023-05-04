@@ -8,22 +8,24 @@ import {
 } from './relayer.interface';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import {
-  BufferMaxDurationMs,
+  MinimumEthBalance,
   NumberOfMessageToProcessPerTransaction,
   NumberOfWithdrawalsToProcessPerTransaction,
   ZeroBytes,
   l2BridgeAddressToL1,
 } from './relayer.constants';
 import { MongoService } from 'storage/mongo/mongo.service';
-import { Transfer, Withdrawal } from 'indexer/entities';
+import { Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
-import { callWithRetry, getMessageHash, sleep } from './relayer.utils';
+import { callWithRetry, formatDecimals, getMessageHash, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { ethers, BigNumber } from 'ethers';
 import { GasService } from 'http/gas/gas.service';
 import { CheckPointSizeMs, GasCostMultiplePerWithdrawal, GasCostPerWithdrawal } from 'http/gas/gas.constants';
 import { defaultAbiCoder } from 'ethers/lib/utils';
+import { RelayerNotifications } from './notification/notifications';
+import { DiscordService } from 'notification/discord/discord.service';
 
 @Injectable()
 export class RelayerService {
@@ -43,6 +45,7 @@ export class RelayerService {
     private indexerService: IndexerService,
     private readonly prometheusService: PrometheusService,
     private readonly gasService: GasService,
+    private readonly discordService: DiscordService,
   ) {
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
@@ -127,14 +130,23 @@ export class RelayerService {
     }
 
     totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
-    const canExec = await this.checkIfGasCostCoverTheTransaction(totalGasPaid, totalWithdrawalsProcessed);
+    const { status, currentCost } = await this.checkIfGasCostCoverTheTransaction(
+      totalGasPaid,
+      totalWithdrawalsProcessed,
+    );
 
     // Consume the messages.
-    if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0 && canExec) {
-      await this.consumeMessagesOnL1(
+    if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0 && status) {
+      const numberOfTx = await this.consumeMessagesOnL1(
         allMulticallRequestsForMessagesCanBeConsumedOnL1,
         NumberOfWithdrawalsToProcessPerTransaction,
       );
+      await RelayerNotifications.emitWithdrawalsProcessed(this.discordService, this.networkId, {
+        totalWithdrawalsProcessed,
+        numberOfTx,
+        totalGasPaid: formatDecimals(totalGasPaid),
+        currentCost: formatDecimals(currentCost),
+      });
     }
     // Store the last processed block on database.
     await this.updateProcessedBlock(currentToBlockNumber);
@@ -428,15 +440,18 @@ export class RelayerService {
     return { status: false, amount: BigNumber.from('0') };
   }
 
-  checkIfGasCostCoverTheTransaction = async (totalPaid: BigNumber, numberOfWithdrawals: number): Promise<boolean> => {
-    if (numberOfWithdrawals === 0) return false;
+  checkIfGasCostCoverTheTransaction = async (
+    totalPaid: BigNumber,
+    numberOfWithdrawals: number,
+  ): Promise<{ status: boolean; currentCost?: BigNumber }> => {
+    if (numberOfWithdrawals === 0) return { status: false };
 
     const currentGasPrice = await this.web3Service.getCurrentGasPrice();
     const currentCost = currentGasPrice
       .mul(numberOfWithdrawals === 1 ? GasCostPerWithdrawal : GasCostMultiplePerWithdrawal)
       .mul(numberOfWithdrawals);
 
-    if (currentCost.lte(totalPaid)) return true;
+    if (currentCost.lte(totalPaid)) return { status: true, currentCost };
 
     this.logger.warn('The total gas cost paid can not cover the transaction cost, sleep', {
       currentCost,
@@ -444,6 +459,18 @@ export class RelayerService {
       currentGasPrice,
       numberOfWithdrawals,
     });
+    await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
+      totalPaid: formatDecimals(totalPaid),
+      currentCost: formatDecimals(currentCost),
+    });
     throw new Error('The total gas cost paid can not cover the transaction cost, sleep');
+  };
+
+  checkRelayerBalance = async () => {
+    const balance = await this.web3Service.getRelayerL1Balance();
+    if (balance.gt(MinimumEthBalance)) return;
+    await RelayerNotifications.emitLowRelayerBalance(this.discordService, this.networkId, {
+      balance: formatDecimals(balance),
+    });
   };
 }
