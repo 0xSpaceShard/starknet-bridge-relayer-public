@@ -97,6 +97,11 @@ export class Web3Service {
     return await provider.getGasPrice();
   };
 
+  getRelayerL1Balance = async (): Promise<BigNumber> => {
+    const wallet = await this.getProvider();
+    return await wallet.provider.getBalance(wallet.address);
+  };
+
   async getProvider() {
     const providerURLs: Array<Provider> = getProviderURLs(this.configService);
     for (let i = 0; i < providerURLs.length; i++) {
