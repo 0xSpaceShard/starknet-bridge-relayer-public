@@ -29,7 +29,7 @@ import { DiscordService } from 'notification/discord/discord.service';
 
 @Injectable()
 export class RelayerService {
-  sleepAfterSuccessExec: number = 900000;
+  sleepAfterSuccessExec: number = 18000000;
   sleepAfterFailExec: number = 600000;
   chunk: number = 50;
   networkId: string;
