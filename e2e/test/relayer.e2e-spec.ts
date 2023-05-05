@@ -1,7 +1,7 @@
 import { WithdrawalDoc } from './interfaces';
 import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
-import { NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
+import { MinimumEthBalance, NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
 import { IERC20, IERC20__factory, Starknet, Starknet__factory } from '../starknet-core/typechain-types';
 import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
@@ -442,4 +442,18 @@ describe('Relayer (e2e)', () => {
     }
     expect((await mongoService.getLastProcessedBlock()).blockNumber).toEqual(toBlock);
   });
+
+  it('Check the relayer balance', async () => {
+    const wallet = await web3Service.getProvider()
+    const balance = await wallet.getBalance()
+
+    if (balance.gt(MinimumEthBalance)) {
+      await wallet.sendTransaction({
+        to: ethers.constants.AddressZero,
+        value: balance.sub("90000000000000000").toHexString()
+      })
+    }
+
+    await relayerService.checkRelayerBalance()
+  })
 });

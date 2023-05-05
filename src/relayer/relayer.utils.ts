@@ -1,6 +1,7 @@
 import { TRANSFER_FROM_STARKNET } from './relayer.constants';
 import { uint256 } from 'starknet';
 import { ethers } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -31,3 +32,7 @@ export const getMessageHash = (
   );
 };
 
+export const formatDecimals = (value: BigNumber): string => {
+  if (!value.toString()) return "0"
+  return ethers.utils.formatUnits(value, 18).toString();
+};
