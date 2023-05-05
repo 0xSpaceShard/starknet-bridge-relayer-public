@@ -6,13 +6,17 @@ import { LoggerModule } from 'common/logger';
 
 @Module({
   imports: [
-    ConfigModule,
     LoggerModule,
+    ConfigModule,
     HttpModule.register({
       timeout: 5000,
       maxRedirects: 5,
+      headers: {
+        "Content-Type": "application/json"
+      }
     }),
   ],
   providers: [DiscordService],
+  exports: [DiscordService],
 })
 export class DiscordModule {}

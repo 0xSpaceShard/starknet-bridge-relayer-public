@@ -288,7 +288,7 @@ export class RelayerService {
       const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1]);
       await tx.wait();
       this.logger.log('Call withdraw');
-      return 0;
+      return 1;
     } else {
       const lenght = Math.ceil(multicallRequest.length / limit);
       for (let i = 0; i < lenght; i++) {

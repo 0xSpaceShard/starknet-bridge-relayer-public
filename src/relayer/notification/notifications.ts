@@ -8,7 +8,8 @@ export class RelayerNotifications {
         {
           network,
           Severity: 'HIGH',
-          message: `:x: Low relayer balance: ${{ ...data }}`,
+          message: `:x: Low balance to execute transactions`,
+          data: { ...data },
         },
         null,
         '  ',
@@ -22,7 +23,8 @@ export class RelayerNotifications {
         {
           network,
           Severity: 'WARN',
-          message: `:warning: Can not execute a transaction, the network fee is too high : ${{ ...data }}`,
+          message: `:warning: Can not execute a transaction, the network fee is too high`,
+          data: { ...data },
         },
         null,
         '  ',
@@ -36,7 +38,8 @@ export class RelayerNotifications {
         {
           network,
           Severity: ':white_check_mark: INFO',
-          message: `Withdrawals executed successduly ${{ ...data }}`,
+          message: `Withdrawals executed successfully`,
+          data: { ...data },
         },
         null,
         '  ',
