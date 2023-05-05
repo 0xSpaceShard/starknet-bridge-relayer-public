@@ -510,7 +510,7 @@ describe('RelayerService', () => {
           return createMock<ethers.ContractTransaction>();
         },
       );
-    expect(await service.consumeMessagesOnL1([multicallData], 50)).toEqual(0);
+    expect(await service.consumeMessagesOnL1([multicallData], 50)).toEqual(1);
   });
 
   it('Success checkIfGasCostCoverTheTransaction', async () => {
