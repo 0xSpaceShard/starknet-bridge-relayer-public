@@ -81,7 +81,7 @@ export class Web3Service {
     const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
     const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
       numberOfBlocks,
-      BigNumber.from(blockNumber).toHexString(),
+      BigNumber.from(blockNumber).toHexString().replace("0x0", "0x"),
       [],
     ]);
     return baseFeePerGasHistoryList;
