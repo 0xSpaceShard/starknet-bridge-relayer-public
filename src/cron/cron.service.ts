@@ -1,5 +1,5 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
-import { Timeout } from '@nestjs/schedule';
+import { Cron, CronExpression, Timeout } from '@nestjs/schedule';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RelayerService } from 'relayer/relayer.service';
 
@@ -15,5 +15,10 @@ export class CronService {
   async relayer() {
     this.logger.log('Start the relayer job.');
     await this.relayerService.run();
+  }
+
+  @Cron(CronExpression.EVERY_3_HOURS)
+  async relayerBalance() {
+    await this.relayerService.checkRelayerBalance();
   }
 }

@@ -45,6 +45,7 @@ services:
       RELAYER_L2_ADDRESS: ${RELAYER_L2_ADDRESS}
       RPC_URL: ${RPC_URL}
       ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     command: ['/bin/bash', '-c', 'sleep 2000']
     depends_on:
       - mongo

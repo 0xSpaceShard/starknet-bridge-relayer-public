@@ -7,9 +7,10 @@ import { IndexerModule } from 'indexer/indexer.module';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { GasModule } from 'http/gas/gas.module';
+import { DiscordModule } from 'notification/discord/discord.module';
 
 @Module({
-  imports: [LoggerModule, ConfigModule, Web3Module, MongoModule, IndexerModule, PrometheusModule, GasModule],
+  imports: [LoggerModule, ConfigModule, Web3Module, MongoModule, IndexerModule, PrometheusModule, GasModule, DiscordModule],
   providers: [RelayerService],
   exports: [RelayerService]
 })
