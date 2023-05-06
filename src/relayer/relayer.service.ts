@@ -412,7 +412,7 @@ export class RelayerService {
     let amountPaid: BigNumber = BigNumber.from('0');
     for (let i = 0; i < withdrawal.transfers.length; i++) {
       const transfer = withdrawal.transfers[i];
-      if (transfer.to === this.relayerAddress) {
+      if (transfer.to.toLocaleLowerCase() === this.relayerAddress.toLocaleLowerCase()) {
         amountPaid = BigNumber.from(transfer.value);
         break;
       }
