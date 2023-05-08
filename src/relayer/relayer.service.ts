@@ -110,7 +110,7 @@ export class RelayerService {
         const { multicallRequests: allMulticallRequests, totalPaid } = await this.getMulticallRequests(
           requestWithdrawalAtBlocks.withdrawals,
         );
-        totalGasPaid = totalPaid;
+        totalGasPaid = totalGasPaid.add(totalPaid);
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
