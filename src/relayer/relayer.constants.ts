@@ -46,14 +46,6 @@ const l2BridgeAddressToL1Goerli = {
     l2TokenAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
     l1BridgeAddress: '0xc3511006C04EF1d78af4C8E0e74Ec18A6E64Ff9e',
   },
-  '0x0278f24c3e74cbf7a375ec099df306289beb0605a346277d200b791a7f811a19': {
-    name: 'DAI',
-    symbol: 'DAI',
-    decimals: 18,
-    l1TokenAddress: '0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844',
-    l2TokenAddress: '0x03e85bfbb8e2a42b7bead9e88e9a1b19dbccf661471061807292120462396ec9',
-    l1BridgeAddress: '0xd8beAa22894Cd33F24075459cFba287a10a104E4',
-  },
 };
 
 const l2BridgeAddressToL1Mainnet = {
@@ -88,14 +80,6 @@ const l2BridgeAddressToL1Mainnet = {
     l1TokenAddress: '0x0000000000000000000000000000000000000000',
     l2TokenAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
     l1BridgeAddress: '0xae0Ee0A63A2cE6BaeEFFE56e7714FB4EFE48D419',
-  },
-  '0x001108cdbe5d82737b9057590adaf97d34e74b5452f0628161d237746b6fe69e': {
-    name: 'DAI',
-    symbol: 'DAI',
-    decimals: 18,
-    l1TokenAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-    l2TokenAddress: '0x00da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3',
-    l1BridgeAddress: '0x659a00c33263d9254Fed382dE81349426C795BB6',
   },
 };
 
