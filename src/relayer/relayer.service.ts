@@ -29,8 +29,8 @@ import { DiscordService } from 'notification/discord/discord.service';
 
 @Injectable()
 export class RelayerService {
-  sleepAfterSuccessExec: number = 18000000;
-  sleepAfterFailExec: number = 600000;
+  sleepAfterSuccessExec: number = 3600000;
+  sleepAfterFailExec: number = 1800000;
   chunk: number = 50;
   networkId: string;
   relayerAddress: string;
@@ -459,10 +459,10 @@ export class RelayerService {
       currentGasPrice,
       numberOfWithdrawals,
     });
-    await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
-      totalPaid: formatDecimals(totalPaid),
-      currentCost: formatDecimals(currentCost),
-    });
+    // await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
+    //   totalPaid: formatDecimals(totalPaid),
+    //   currentCost: formatDecimals(currentCost),
+    // });
     throw new Error('The total gas cost paid can not cover the transaction cost, sleep');
   };
 

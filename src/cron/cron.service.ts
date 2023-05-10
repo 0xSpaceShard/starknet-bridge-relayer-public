@@ -11,7 +11,7 @@ export class CronService {
     private readonly relayerService: RelayerService,
   ) {}
 
-  @Timeout(10000)
+  @Timeout(20000)
   async relayer() {
     this.logger.log('Start the relayer job.');
     await this.relayerService.run();
