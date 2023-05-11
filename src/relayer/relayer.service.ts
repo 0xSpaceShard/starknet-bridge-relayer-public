@@ -27,13 +27,15 @@ import { defaultAbiCoder } from 'ethers/lib/utils';
 import { RelayerNotifications } from './notification/notifications';
 import { DiscordService } from 'notification/discord/discord.service';
 import { NetworkConfig, getNetworkConfig } from './configs';
+import { NetworkFeesMetadata } from './fees';
 
 @Injectable()
 export class RelayerService {
-  networkConfig: NetworkConfig
+  networkConfig: NetworkConfig;
   networkId: string;
   relayerAddress: string;
   firstBlock: number;
+  networkFeesMetadata: NetworkFeesMetadata;
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
@@ -49,7 +51,7 @@ export class RelayerService {
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
     this.firstBlock = Number(this.configService.get('FIRST_BLOCK'));
-    this.networkConfig = getNetworkConfig(this.networkId)
+    this.networkConfig = getNetworkConfig(this.networkId);
   }
 
   async run() {
@@ -63,7 +65,9 @@ export class RelayerService {
           this.logger.log('Nothing to process.');
         }
       } catch (error: any) {
-        this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`, { error });
+        this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`, {
+          error,
+        });
         await sleep(this.networkConfig.sleepAfterFailExec);
         continue;
       }
@@ -130,7 +134,7 @@ export class RelayerService {
     }
 
     totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
-    const { status, currentCost } = await this.checkIfGasCostCoverTheTransaction(
+    const { status, networkCost } = await this.checkIfGasCostCoverTheTransaction(
       totalGasPaid,
       totalWithdrawalsProcessed,
     );
@@ -144,9 +148,10 @@ export class RelayerService {
       await RelayerNotifications.emitWithdrawalsProcessed(this.discordService, this.networkId, {
         totalWithdrawalsProcessed,
         numberOfTx,
-        totalGasPaid: formatDecimals(totalGasPaid),
-        currentCost: formatDecimals(currentCost),
+        totalGasCostPaid: formatDecimals(totalGasPaid),
+        networkGasCost: formatDecimals(networkCost),
       });
+      this.networkFeesMetadata = {};
     }
     // Store the last processed block on database.
     await this.updateProcessedBlock(currentToBlockNumber);
@@ -443,26 +448,29 @@ export class RelayerService {
   checkIfGasCostCoverTheTransaction = async (
     totalPaid: BigNumber,
     numberOfWithdrawals: number,
-  ): Promise<{ status: boolean; currentCost?: BigNumber }> => {
+  ): Promise<{ status: boolean; networkCost?: BigNumber }> => {
     if (numberOfWithdrawals === 0) return { status: false };
 
     const currentGasPrice = await this.web3Service.getCurrentGasPrice();
-    const currentCost = currentGasPrice
+    const networkCost = currentGasPrice
       .mul(numberOfWithdrawals === 1 ? GasCostPerWithdrawal : GasCostMultiplePerWithdrawal)
       .mul(numberOfWithdrawals);
 
-    if (currentCost.lte(totalPaid)) return { status: true, currentCost };
+    if (networkCost.lte(totalPaid)) return { status: true, networkCost };
 
     this.logger.warn('The total gas cost paid can not cover the transaction cost, sleep', {
-      currentCost,
+      networkCost,
       totalPaid,
       currentGasPrice,
       numberOfWithdrawals,
     });
-    // await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
-    //   totalPaid: formatDecimals(totalPaid),
-    //   currentCost: formatDecimals(currentCost),
-    // });
+
+    this.networkFeesMetadata = {
+      isHighFee: true,
+      networkCost: formatDecimals(networkCost),
+      usersPaid: formatDecimals(totalPaid),
+      numberOfWithdrawals,
+    };
     throw new Error('The total gas cost paid can not cover the transaction cost, sleep');
   };
 
@@ -471,6 +479,16 @@ export class RelayerService {
     if (balance.gt(MinimumEthBalance)) return;
     await RelayerNotifications.emitLowRelayerBalance(this.discordService, this.networkId, {
       balance: formatDecimals(balance),
+    });
+  };
+
+  checkNetworkHighFees = async () => {
+    if (!this.networkFeesMetadata.isHighFee) return;
+    await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
+      network: this.networkId,
+      networkCost: this.networkFeesMetadata.networkCost,
+      usersPaid: this.networkFeesMetadata.usersPaid,
+      numberOfWithdrawals: this.networkFeesMetadata.numberOfWithdrawals,
     });
   };
 }
