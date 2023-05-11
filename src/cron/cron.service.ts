@@ -21,4 +21,9 @@ export class CronService {
   async relayerBalance() {
     await this.relayerService.checkRelayerBalance();
   }
+
+  @Cron(CronExpression.EVERY_2_HOURS)
+  async highNetworkFees() {
+    await this.relayerService.checkNetworkHighFees();
+  }
 }
