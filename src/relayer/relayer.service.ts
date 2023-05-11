@@ -26,12 +26,11 @@ import { CheckPointSizeMs, GasCostMultiplePerWithdrawal, GasCostPerWithdrawal } 
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { RelayerNotifications } from './notification/notifications';
 import { DiscordService } from 'notification/discord/discord.service';
+import { NetworkConfig, getNetworkConfig } from './configs';
 
 @Injectable()
 export class RelayerService {
-  sleepAfterSuccessExec: number = 3600000;
-  sleepAfterFailExec: number = 1800000;
-  chunk: number = 50;
+  networkConfig: NetworkConfig
   networkId: string;
   relayerAddress: string;
   firstBlock: number;
@@ -50,6 +49,7 @@ export class RelayerService {
     this.networkId = this.configService.get('NETWORK_ID');
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
     this.firstBlock = Number(this.configService.get('FIRST_BLOCK'));
+    this.networkConfig = getNetworkConfig(this.networkId)
   }
 
   async run() {
@@ -63,12 +63,12 @@ export class RelayerService {
           this.logger.log('Nothing to process.');
         }
       } catch (error: any) {
-        this.logger.error(`Error process withdrawals, sleep ${this.sleepAfterSuccessExec / 1000} sec`, { error });
-        await sleep(this.sleepAfterFailExec);
+        this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`, { error });
+        await sleep(this.networkConfig.sleepAfterFailExec);
         continue;
       }
-      this.logger.log(`Relayer sleep ${this.sleepAfterSuccessExec / 1000} sec`);
-      await sleep(this.sleepAfterSuccessExec);
+      this.logger.log(`Relayer sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`);
+      await sleep(this.networkConfig.sleepAfterSuccessExec);
     }
   }
 
@@ -90,10 +90,10 @@ export class RelayerService {
       // Update the block numbers.
       currentFromBlockNumber = currentToBlockNumber;
 
-      if (currentToBlockNumber + this.chunk > toBlock && currentToBlockNumber != toBlock) {
+      if (currentToBlockNumber + this.networkConfig.chunk > toBlock && currentToBlockNumber != toBlock) {
         currentToBlockNumber = toBlock;
       } else {
-        currentToBlockNumber += this.chunk;
+        currentToBlockNumber += this.networkConfig.chunk;
       }
 
       // Update the block numbers.
