@@ -1,6 +1,14 @@
-import { Controller, Get, InternalServerErrorException, Param, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  HttpException,
+  InternalServerErrorException,
+  Param,
+} from '@nestjs/common';
 import { GasService } from './gas.service';
 import { ConfigService } from 'common/config';
+import { networkListBridgeMetadata } from 'utils/bridgeTokens';
 
 @Controller({
   path: 'gas-cost',
@@ -9,10 +17,15 @@ import { ConfigService } from 'common/config';
 export class GasController {
   constructor(private gasService: GasService, private configService: ConfigService) {}
 
-  @Get(':timestamp')
-  async getGasCostPerTimestamp(@Param("timestamp") timestamp: number) {
+  @Get(':token/:timestamp')
+  async getGasCostPerTimestamp(@Param('timestamp') timestamp: number, @Param('token') token: string) {
+    const listBridgeMetadata = networkListBridgeMetadata(this.configService.get('NETWORK_ID'));
+    if (!listBridgeMetadata[token]) {
+      throw new BadRequestException("Token not handled");
+    }
+
     try {
-      const gasCost = (await this.gasService.getGasCostPerTimestamp(timestamp)).toString();
+      const gasCost = (await this.gasService.getGasCostPerTimestamp(timestamp, token)).toString();
       return {
         status: 'ok',
         message: 'success',

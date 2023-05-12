@@ -4,7 +4,7 @@ import { LoggerModule } from 'common/logger';
 import { createMock } from '@golevelup/ts-jest';
 import { ceilBigNumber, clampTimestamp, roundBigNumber } from './gas.utils';
 import { BigNumber } from 'ethers';
-import { GasCostPerWithdrawal, OneGwei } from './gas.constants';
+import { OneGwei } from './gas.constants';
 import {
   BaseFeePriceHistoryMock_7999500_7999001,
   BaseFeePriceHistoryMock_8000000_7999001,
@@ -63,8 +63,8 @@ describe('GasService', () => {
 
   it('Success Gas cost', async () => {
     const average = BigNumber.from((150 * 1e9).toString());
-    const avgGas = service.getGasCost(average, GasCostPerWithdrawal);
-    expect(avgGas).toEqual(average.mul(GasCostPerWithdrawal));
+    const avgGas = service.getGasCost(average, 50000);
+    expect(avgGas).toEqual(average.mul(50000));
 
     const avgGasPrice = service.getAverageGasPrice(BaseFeePriceHistoryMock_8000000_7999001.baseFeePerGas);
     expect(avgGasPrice.mod(5).toNumber()).toEqual(0);
@@ -277,7 +277,7 @@ describe('GasService', () => {
         return BaseFeePriceHistoryMock_8000000_7999001;
       });
 
-    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968);
+    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
     expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
 
     limit = 500;
@@ -294,7 +294,7 @@ describe('GasService', () => {
         expect(lim).toEqual(limit);
         return BaseFeePriceHistoryMock_8000000_7999501;
       });
-    const avgGasCost2 = await service.getGasCostPerTimestamp(1669087968);
+    const avgGasCost2 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
     expect(avgGasCost2.mod(5).toNumber()).toEqual(0);
     expect(avgGasCost1).toEqual(avgGasCost2);
   });
@@ -329,7 +329,7 @@ describe('GasService', () => {
         };
       });
 
-    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968);
+    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
     expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
   });
 
@@ -358,4 +358,6 @@ describe('GasService', () => {
       expect(error).toEqual('Error to fetch block number');
     }
   });
+
+  
 });

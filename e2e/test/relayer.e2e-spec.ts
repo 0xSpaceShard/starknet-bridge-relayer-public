@@ -1,9 +1,9 @@
 import { WithdrawalDoc } from './interfaces';
 import { ethers, BigNumber } from 'ethers';
 import { decodeBSONFile, getMessageHash } from './utils';
-import { MinimumEthBalance, NumberOfWithdrawalsToProcessPerTransaction, l2BridgeAddressToL1 } from '../../src/relayer/relayer.constants';
+import { MinimumEthBalance, NumberOfWithdrawalsToProcessPerTransaction } from '../../src/relayer/relayer.constants';
 import { IERC20, IERC20__factory, Starknet, Starknet__factory } from '../starknet-core/typechain-types';
-import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
+import { ADDRESSES, GAS_BUFFER_PER_WITHDRAWAL } from '../../src/web3/web3.constants';
 import * as dotenv from 'dotenv';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RelayerService } from '../../src/relayer/relayer.service';
@@ -14,6 +14,8 @@ import { MongoService } from '../../src/storage/mongo/mongo.service';
 import { IndexerService } from '../../src/indexer/indexer.service';
 import { Web3Service } from '../../src/web3/web3.service';
 import { sleep } from 'relayer/relayer.utils';
+import { networkListBridgeMetadata } from 'utils/bridgeTokens';
+import { ListBridgeMetadata } from 'utils/interfaces';
 
 dotenv.config();
 jest.useRealTimers();
@@ -24,7 +26,7 @@ describe('Relayer (e2e)', () => {
   let mongoService: MongoService;
   let moduleFixture: TestingModule;
   let signer: ethers.Wallet;
-  let l2BridgeAddressToL1Addresses: any;
+  let listBridgeMetadata: ListBridgeMetadata;
   let coreAddresses: ContractAddress;
   let provider: ethers.providers.JsonRpcProvider;
   let starknet: Starknet;
@@ -43,9 +45,9 @@ describe('Relayer (e2e)', () => {
 
     provider = new ethers.providers.JsonRpcProvider('http://hardhat:8545');
     const privateKey = process.env.PRIVATE_KEY;
-    const network = process.env.NETWORK_ID;
+    const network = "goerli";
     signer = new ethers.Wallet(privateKey, provider);
-    l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(network);
+    listBridgeMetadata = networkListBridgeMetadata(network);
     coreAddresses = ADDRESSES[network];
 
     starknet = Starknet__factory.connect(coreAddresses.starknetCore, signer) as Starknet;
@@ -111,7 +113,7 @@ describe('Relayer (e2e)', () => {
         const withdraw = withdrawals[i];
         const l1Recipient = withdraw.l1_recipient.toString('hex').replace('000000000000000000000000', '0x');
         const l2BridgeAddress = withdraw.bridge_address.toString('hex');
-        const l1BridgeAddress = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1BridgeAddress;
+        const l1BridgeAddress = listBridgeMetadata[l2BridgeAddress].l1BridgeAddress;
         const amount = BigNumber.from('0x' + withdraw.amount.toString('hex'));
 
         const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
@@ -124,7 +126,7 @@ describe('Relayer (e2e)', () => {
             userBalancesBefore.push(await provider.getBalance(l1Recipient));
             usersAddresses.push({ erc20: false, l1Recipient });
           } else {
-            const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            const add = listBridgeMetadata[l2BridgeAddress].l1TokenAddress;
             await sleep(1000);
             const erc20 = IERC20__factory.connect(add, signer) as IERC20;
             const balance = await erc20.balanceOf(l1Recipient);
@@ -219,7 +221,7 @@ describe('Relayer (e2e)', () => {
         const withdraw = withdrawals[i];
         const l1Recipient = withdraw.l1_recipient.toString('hex').replace('000000000000000000000000', '0x');
         const l2BridgeAddress = withdraw.bridge_address.toString('hex');
-        const l1BridgeAddress = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1BridgeAddress;
+        const l1BridgeAddress = listBridgeMetadata[l2BridgeAddress].l1BridgeAddress;
         const amount = BigNumber.from('0x' + withdraw.amount.toString('hex'));
 
         const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
@@ -232,7 +234,7 @@ describe('Relayer (e2e)', () => {
             userBalancesBefore.push(await provider.getBalance(l1Recipient));
             usersAddresses.push({ erc20: false, l1Recipient });
           } else {
-            const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            const add = listBridgeMetadata[l2BridgeAddress].l1TokenAddress;
             await sleep(1000);
             const erc20 = IERC20__factory.connect(add, signer) as IERC20;
             const balance = await erc20.balanceOf(l1Recipient);
@@ -306,25 +308,27 @@ describe('Relayer (e2e)', () => {
       {
         callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
+        gas: '100000'
       },
       {
         callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
+        gas: '100000'
       },
     ];
     let tx = await web3Service.callWithdrawMulticall(hashes);
 
-    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL + GAS_LIMIT_MULTIPLE_WITHDRAWAL * hashes.length);
+    expect(tx.gasLimit.toNumber()).toEqual(200000 + GAS_BUFFER_PER_WITHDRAWAL * hashes.length);
     let receipt = await provider.getTransactionReceipt(tx.hash);
-    expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
+    expect(receipt.gasUsed.toNumber()).toBeLessThan(Number(hashes[0].gas));
 
     await starknet.addMessage([msgHash]);
     expect((await starknet.l2ToL1Messages(msgHash)).toNumber()).not.toEqual(0);
     tx = await web3Service.callWithdrawMulticall([hashes[0]]);
 
-    expect(tx.gasLimit.toNumber()).toEqual(GAS_LIMIT_PER_WITHDRAWAL);
+    expect(tx.gasLimit.toNumber()).toEqual(Number(hashes[0].gas)+ GAS_BUFFER_PER_WITHDRAWAL);
     receipt = await provider.getTransactionReceipt(tx.hash);
-    expect(receipt.gasUsed.toNumber()).toBeLessThan(GAS_LIMIT_PER_WITHDRAWAL);
+    expect(receipt.gasUsed.toNumber()).toBeLessThan(Number(hashes[0].gas) + GAS_BUFFER_PER_WITHDRAWAL);
   });
 
   it('Consume valid multiple transactions when the paid fees can not cover the gas cost', async () => {
@@ -367,7 +371,7 @@ describe('Relayer (e2e)', () => {
         const withdraw = withdrawals[i];
         const l1Recipient = withdraw.l1_recipient.toString('hex').replace('000000000000000000000000', '0x');
         const l2BridgeAddress = withdraw.bridge_address.toString('hex');
-        const l1BridgeAddress = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1BridgeAddress;
+        const l1BridgeAddress = listBridgeMetadata[l2BridgeAddress].l1BridgeAddress;
         const amount = BigNumber.from('0x' + withdraw.amount.toString('hex'));
 
         const msgHash = getMessageHash(l2BridgeAddress, l1BridgeAddress, l1Recipient, amount.toString());
@@ -380,7 +384,7 @@ describe('Relayer (e2e)', () => {
             userBalancesBefore.push(await provider.getBalance(l1Recipient));
             usersAddresses.push({ erc20: false, l1Recipient });
           } else {
-            const add = l2BridgeAddressToL1Addresses[l2BridgeAddress].l1TokenAddress;
+            const add = listBridgeMetadata[l2BridgeAddress].l1TokenAddress;
             await sleep(1000);
             const erc20 = IERC20__factory.connect(add, signer) as IERC20;
             const balance = await erc20.balanceOf(l1Recipient);
