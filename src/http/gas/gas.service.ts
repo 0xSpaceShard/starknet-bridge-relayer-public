@@ -5,13 +5,7 @@ import { callWithRetry, sleep } from 'relayer/relayer.utils';
 import { catchError, firstValueFrom } from 'rxjs';
 import { BaseFeePerGasHistory } from 'web3/web3.interface';
 import { Web3Service } from 'web3/web3.service';
-import {
-  BlockNumber24H,
-  CacheDuration24hInMs,
-  EtherscanApiUrl,
-  FeeShiftPercentage,
-  GasCostPerWithdrawal,
-} from './gas.constants';
+import { BlockNumber24H, CacheDuration24hInMs, EtherscanApiUrl, FeeShiftPercentage, OneGwei } from './gas.constants';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'common/config';
 import { BigNumber } from 'ethers';
@@ -19,6 +13,8 @@ import { ceilBigNumber, clampTimestamp, roundBigNumber } from './gas.utils';
 import { EtherscanGetBlockNumberTimestampResponse, FeeHistory } from './gas.interface';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { networkListBridgeMetadata } from 'utils/bridgeTokens';
+import { ListBridgeMetadata } from 'utils/interfaces';
 
 @Injectable()
 export class GasService {
@@ -34,7 +30,7 @@ export class GasService {
     this.etherscanApiUrl = EtherscanApiUrl(this.configService.get('NETWORK_ID'));
   }
 
-  getGasCostPerTimestamp = async (timestamp: number): Promise<BigNumber> => {
+  getGasCostPerTimestamp = async (timestamp: number, token: string): Promise<BigNumber> => {
     this.logger.log('Start calculate gas cost', { timestamp });
     const ctimestamp = clampTimestamp(timestamp);
     if (!ctimestamp) {
@@ -56,13 +52,15 @@ export class GasService {
     }
 
     // base fees
-    let gasCost: BigNumber = BigNumber.from(((await this.cacheManager.get(String(blockNumber))) as String) || '0');
+    let gasCost: BigNumber = BigNumber.from(
+      ((await this.cacheManager.get(`${String(blockNumber)}-${token}`)) as String) || '0',
+    );
     if (gasCost.gt(0)) {
       this.logger.log('Use in memory gas cost', { gasCost });
       return gasCost;
     }
 
-    this.logger.log('Fetch base fee price history', { timestamp, ctimestamp, blockNumber });
+    this.logger.log('Fetch base fee price history', { token, timestamp, ctimestamp, blockNumber });
     const feeHistory = await this.fetchBaseFeePriceHistory(
       blockNumber,
       blockNumber - this.getNumberOfBlocksToCalculateTheGasCost(),
@@ -72,15 +70,19 @@ export class GasService {
       throw new Error('Invalid fee history');
     }
 
-    gasCost = await this.calculateGasCost(feeHistory, GasCostPerWithdrawal);
-    await this.cacheManager.set(String(blockNumber), gasCost.toString(), CacheDuration24hInMs);
-    this.logger.log('Calculate gas cost', { gasCost, blockNumber, ctimestamp, timestamp });
+    const listBridgeMetadata: ListBridgeMetadata = networkListBridgeMetadata(this.configService.get('NETWORK_ID'));
+    gasCost = await this.calculateGasCost(feeHistory, Number(listBridgeMetadata[token].gas));
+    await this.cacheManager.set(`${String(blockNumber)}-${token}`, gasCost.toString(), CacheDuration24hInMs);
+    this.logger.log('Calculate gas cost', { token, gasCost, blockNumber, ctimestamp, timestamp });
 
     return gasCost;
   };
 
   calculateGasCost = async (feeHistory: FeeHistory, gasUnit: number): Promise<BigNumber> => {
     let averageGasPrice = this.getAverageGasPrice(feeHistory.baseFees);
+    if (averageGasPrice.lt(OneGwei * 10)) {
+      averageGasPrice = BigNumber.from(String(OneGwei * 10));
+    }
     return this.getGasCost(averageGasPrice, gasUnit);
   };
 

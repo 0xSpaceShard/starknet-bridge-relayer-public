@@ -37,10 +37,13 @@ describe('GasController', () => {
     jest
       .spyOn(gasService, 'getGasCostPerTimestamp')
       .mockImplementation(async (timestamp: number): Promise<BigNumber> => {
-        expect(timestamp).toEqual(1669087968)
+        expect(timestamp).toEqual(1669087968);
         return gasCost;
       });
-    const res = await controller.getGasCostPerTimestamp(timestamp);
+    const res = await controller.getGasCostPerTimestamp(
+      timestamp,
+      '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+    );
     expect(res.status).toEqual('ok');
     expect(res.message).toEqual('success');
     expect(res.result.gasCost).toEqual(gasCost.toString());
@@ -56,7 +59,10 @@ describe('GasController', () => {
 
     const timestamp = 1669087968;
     try {
-      await controller.getGasCostPerTimestamp(timestamp);
+      await controller.getGasCostPerTimestamp(
+        timestamp,
+        '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+      );
     } catch (error) {
       expect(error.status).toEqual(500);
     }
