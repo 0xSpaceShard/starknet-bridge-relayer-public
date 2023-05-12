@@ -12,7 +12,6 @@ import {
   NumberOfMessageToProcessPerTransaction,
   NumberOfWithdrawalsToProcessPerTransaction,
   ZeroBytes,
-  l2BridgeAddressToL1,
 } from './relayer.constants';
 import { MongoService } from 'storage/mongo/mongo.service';
 import { Withdrawal } from 'indexer/entities';
@@ -22,12 +21,14 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { ethers, BigNumber } from 'ethers';
 import { GasService } from 'http/gas/gas.service';
-import { CheckPointSizeMs, GasCostMultiplePerWithdrawal, GasCostPerWithdrawal } from 'http/gas/gas.constants';
+import { CheckPointSizeMs } from 'http/gas/gas.constants';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { RelayerNotifications } from './notification/notifications';
 import { DiscordService } from 'notification/discord/discord.service';
 import { NetworkConfig, getNetworkConfig } from './configs';
 import { NetworkFeesMetadata } from './fees';
+import { ListBridgeMetadata } from 'utils/interfaces';
+import { networkListBridgeMetadata } from 'utils/bridgeTokens';
 
 @Injectable()
 export class RelayerService {
@@ -88,6 +89,7 @@ export class RelayerService {
 
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
     let totalGasPaid: BigNumber = BigNumber.from('0');
+    let totalGasToUse: BigNumber = BigNumber.from('0');
 
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
@@ -111,10 +113,13 @@ export class RelayerService {
 
       if (requestWithdrawalAtBlocks.withdrawals.length > 0) {
         // Prepare multicallRequest data to check if the withdrawals can be consumed on L1
-        const { multicallRequests: allMulticallRequests, totalPaid } = await this.getMulticallRequests(
-          requestWithdrawalAtBlocks.withdrawals,
-        );
+        const {
+          multicallRequests: allMulticallRequests,
+          totalPaid,
+          totalGas,
+        } = await this.getMulticallRequests(requestWithdrawalAtBlocks.withdrawals);
         totalGasPaid = totalGasPaid.add(totalPaid);
+        totalGasToUse = totalGasToUse.add(totalGas);
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
@@ -136,6 +141,7 @@ export class RelayerService {
     totalWithdrawalsProcessed = allMulticallRequestsForMessagesCanBeConsumedOnL1.length;
     const { status, networkCost } = await this.checkIfGasCostCoverTheTransaction(
       totalGasPaid,
+      totalGasToUse,
       totalWithdrawalsProcessed,
     );
 
@@ -229,27 +235,36 @@ export class RelayerService {
 
   async getMulticallRequests(
     withdrawals: Array<Withdrawal>,
-  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber }> {
+  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber }> {
     let totalPaid: BigNumber = BigNumber.from('0');
+    let totalGas: BigNumber = BigNumber.from('0');
     const multicallRequests: Array<MulticallRequest> = [];
-    const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
+    const listBridgeMetadata: ListBridgeMetadata = networkListBridgeMetadata(this.networkId);
 
     for (let i = 0; i < withdrawals.length; i++) {
       const withdrawal = withdrawals[i];
-      const l1BridgeAddress = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
+      const bridgeMetadata = listBridgeMetadata[withdrawal.bridgeAddress];
+      if (!bridgeMetadata) continue;
 
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
-      if (l1BridgeAddress && status) {
+      if (bridgeMetadata.l1BridgeAddress && status) {
         totalPaid = totalPaid.add(amount);
+        totalGas = totalGas.add(bridgeMetadata.gas);
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
-            getMessageHash(withdrawal.bridgeAddress, l1BridgeAddress, withdrawal.l1Recipient, withdrawal.amount),
+            getMessageHash(
+              withdrawal.bridgeAddress,
+              bridgeMetadata.l1BridgeAddress,
+              withdrawal.l1Recipient,
+              withdrawal.amount,
+            ),
           ]),
+          gas: bridgeMetadata.gas,
         });
       }
     }
-    return { multicallRequests, totalPaid };
+    return { multicallRequests, totalPaid, totalGas };
   }
 
   getListOfValidMessagesToConsumedOnL1(
@@ -258,7 +273,7 @@ export class RelayerService {
     allMulticallRequest: Array<MulticallRequest>,
   ): Array<MulticallRequest> {
     const multicallRequests: Array<MulticallRequest> = [];
-    const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1(this.networkId);
+    const listBridgeMetadata = networkListBridgeMetadata(this.networkId);
 
     // Cache the response to avoid duplicate hashes.
     const cache = {};
@@ -275,12 +290,13 @@ export class RelayerService {
       cache[allMulticallRequest[i].callData] -= 1;
 
       const withdrawal = withdrawals[i];
-      const target = l2BridgeAddressToL1Addresses[withdrawal.bridgeAddress].l1BridgeAddress;
+      const bridgeMetadata = listBridgeMetadata[withdrawal.bridgeAddress];
 
       const l1RecipientDecoded = ethers.utils.defaultAbiCoder.decode(['address'], withdrawal.l1Recipient)[0];
       multicallRequests.push({
-        target,
+        target: bridgeMetadata.l1BridgeAddress,
         callData: this.web3Service.encodeBridgeToken('withdraw', [withdrawal.amount, l1RecipientDecoded]),
+        gas: bridgeMetadata.gas,
       });
     }
     return multicallRequests;
@@ -290,7 +306,7 @@ export class RelayerService {
     if (multicallRequest.length === 1) {
       const req = multicallRequest[0];
       const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
-      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1]);
+      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1], Number(req.gas));
       await tx.wait();
       this.logger.log('Call withdraw');
       return 1;
@@ -432,7 +448,7 @@ export class RelayerService {
     const validationAttempts = 2;
     for (let i = 0; i < validationAttempts; i++) {
       try {
-        const gasCost = await this.gasService.getGasCostPerTimestamp(timestamp);
+        const gasCost = await this.gasService.getGasCostPerTimestamp(timestamp, withdrawal.bridgeAddress);
         if (amountPaid.gte(gasCost)) {
           return { status: true, amount: gasCost };
         }
@@ -447,14 +463,13 @@ export class RelayerService {
 
   checkIfGasCostCoverTheTransaction = async (
     totalPaid: BigNumber,
+    totalGasToUse: BigNumber,
     numberOfWithdrawals: number,
   ): Promise<{ status: boolean; networkCost?: BigNumber }> => {
     if (numberOfWithdrawals === 0) return { status: false };
 
     const currentGasPrice = await this.web3Service.getCurrentGasPrice();
-    const networkCost = currentGasPrice
-      .mul(numberOfWithdrawals === 1 ? GasCostPerWithdrawal : GasCostMultiplePerWithdrawal)
-      .mul(numberOfWithdrawals);
+    const networkCost = currentGasPrice.mul(totalGasToUse);
 
     if (networkCost.lte(totalPaid)) return { status: true, networkCost };
 
