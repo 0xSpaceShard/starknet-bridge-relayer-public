@@ -8,8 +8,8 @@ export const EtherscanApiUrl = (network: string): string=>  {
 };
 export const OneGwei = 1000000000;
 export const FiveGwei = 5000000000;
-export const GasCostPerWithdrawal = 65000;
-export const GasCostMultiplePerWithdrawal = 50000;
+// export const GasCostPerWithdrawal = 65000;
+// export const GasCostMultiplePerWithdrawal = 50000;
 export const BlockNumber24H = 5760; // 84600 / 14
 
 export const CacheFeeHistoryKey = 'feeHistory'

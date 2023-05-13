@@ -11,7 +11,6 @@ import {
   multicallRequestConsumeMessagesOnL1Mock,
   withdrawalsResponseMock,
 } from './__mocks__/data';
-import { l2BridgeAddressToL1 } from './relayer.constants';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
 import { PrometheusService } from 'common/prometheus';
 import { ADDRESSES } from 'web3/web3.constants';
@@ -21,9 +20,9 @@ import { Withdrawal } from 'indexer/entities';
 import { getMessageHash } from './relayer.utils';
 import { GasService } from 'http/gas/gas.service';
 import { defaultAbiCoder } from 'ethers/lib/utils';
-import { GasCostMultiplePerWithdrawal } from 'http/gas/gas.constants';
 import { RelayerNotifications } from './notification/notifications';
 import { DiscordService } from 'notification/discord/discord.service';
+import { networkListBridgeMetadata } from 'utils/bridgeTokens';
 
 describe('RelayerService', () => {
   let service: RelayerService;
@@ -204,7 +203,7 @@ describe('RelayerService', () => {
     const { multicallRequests, totalPaid } = await service.getMulticallRequests(withdrawalAtBlocksResponse.withdrawals);
     expect(multicallRequests.length).toEqual(withdrawalAtBlocksResponse.withdrawals.length);
 
-    // const l2BridgeAddressToL1Addresses = l2BridgeAddressToL1('goerli');
+    // const networkListBridgeMetadataAddresses = networkListBridgeMetadata('goerli');
     for (let i = 0; i < multicallRequests.length; i++) {
       const req = multicallRequests[i];
       expect(req.target).toEqual(ADDRESSES['goerli'].starknetCore);
@@ -259,7 +258,7 @@ describe('RelayerService', () => {
 
     for (let i = 0; i < withdrawalsCanBeConsumedList.length; i++) {
       const req = allMulticallRequestsForMessagesCanBeConsumedOnL1[i];
-      const addresses = l2BridgeAddressToL1('goerli')[withdrawalsCanBeConsumedList[i].bridgeAddress];
+      const addresses = networkListBridgeMetadata('goerli')[withdrawalsCanBeConsumedList[i].bridgeAddress];
       expect(req.target).toEqual(addresses.l1BridgeAddress);
       // function selector => a46efaf3 => 4Bytes
       // amount => c96dbee3b8d1478353813a10f1c9b396c187e8fa71cd80902b5005edb62d9b28 => 32Bytes
@@ -349,9 +348,9 @@ describe('RelayerService', () => {
   });
 
   it('Success processWithdrawals', async () => {
-    jest.spyOn(RelayerNotifications, "emitHighNetworkFees").mockImplementation()
-    jest.spyOn(RelayerNotifications, "emitLowRelayerBalance").mockImplementation()
-    jest.spyOn(RelayerNotifications, "emitWithdrawalsProcessed").mockImplementation()
+    jest.spyOn(RelayerNotifications, 'emitHighNetworkFees').mockImplementation();
+    jest.spyOn(RelayerNotifications, 'emitLowRelayerBalance').mockImplementation();
+    jest.spyOn(RelayerNotifications, 'emitWithdrawalsProcessed').mockImplementation();
     const expectedValues = [
       { fromBlock: 100, toBlock: 150, stateBlockNumber: 150 },
       { fromBlock: 150, toBlock: 170, stateBlockNumber: 170 },
@@ -462,7 +461,7 @@ describe('RelayerService', () => {
     }
   });
 
-  it('Success checkIfAmountPaidIsValid', async () => {
+  it('Success consumeMessagesOnL1', async () => {
     const fromBlock = 100;
     const toBlock = 150;
     const withdrawals = withdrawalsResponseMock;
@@ -514,21 +513,29 @@ describe('RelayerService', () => {
   });
 
   it('Success checkIfGasCostCoverTheTransaction', async () => {
+    const gasCostMultiplePerWithdrawal = 50000;
+
     jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('10000000000')));
     let { status } = await service.checkIfGasCostCoverTheTransaction(
-      BigNumber.from('20000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
+      BigNumber.from('20000000000').mul(gasCostMultiplePerWithdrawal).mul(10),
+      BigNumber.from(String(gasCostMultiplePerWithdrawal)).mul(10),
       10,
     );
     expect(status).toEqual(true);
 
-    ({ status } = await service.checkIfGasCostCoverTheTransaction(BigNumber.from('0'), 0));
+    ({ status } = await service.checkIfGasCostCoverTheTransaction(
+      BigNumber.from('0'),
+      BigNumber.from(String(gasCostMultiplePerWithdrawal)).mul(0),
+      0,
+    ));
     expect(status).toEqual(false);
 
     jest.spyOn(web3Service, 'getCurrentGasPrice').mockReturnValue(Promise.resolve(BigNumber.from('20000000000')));
     for (let i = 0; i < 10; i++) {
       try {
         await service.checkIfGasCostCoverTheTransaction(
-          BigNumber.from('10000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
+          BigNumber.from('10000000000').mul(gasCostMultiplePerWithdrawal).mul(10),
+          BigNumber.from(String(gasCostMultiplePerWithdrawal)).mul(10),
           10,
         );
         expect(1).toEqual(0);
@@ -538,7 +545,8 @@ describe('RelayerService', () => {
     }
 
     ({ status } = await service.checkIfGasCostCoverTheTransaction(
-      BigNumber.from('21000000000').mul(GasCostMultiplePerWithdrawal).mul(10),
+      BigNumber.from('21000000000').mul(gasCostMultiplePerWithdrawal).mul(10),
+      BigNumber.from(String(gasCostMultiplePerWithdrawal)).mul(10),
       10,
     ));
 

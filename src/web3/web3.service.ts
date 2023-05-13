@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import {
-  Multicall,
   StarknetCore,
   StarknetTokenBridge,
-  Multicall__factory,
   StarknetCore__factory,
   StarknetTokenBridge__factory,
-  MulticallView__factory,
-  MulticallView,
+  MulticallWithGasLimit__factory,
+  MulticallWithGasLimit,
+  Multicall,
+  Multicall__factory,
 } from './generated';
-import { ADDRESSES, GAS_LIMIT_MULTIPLE_WITHDRAWAL, GAS_LIMIT_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
+import { ADDRESSES, GAS_BUFFER_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
 import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
 import { BaseFeePerGasHistory, ContractAddress, MulticallRequest, Provider } from './web3.interface';
@@ -23,14 +23,14 @@ export class Web3Service {
     this.maxPriorityFeePerGas = this.configService.get('MAX_PRIORITY_FEE_PER_GAS');
   }
 
+  async getMulticallWithGasLimitContract(): Promise<MulticallWithGasLimit> {
+    const provider = await this.getProvider();
+    return MulticallWithGasLimit__factory.connect(this.getAddresses().multicallGasLimit, provider);
+  }
+
   async getMulticallContract(): Promise<Multicall> {
     const provider = await this.getProvider();
     return Multicall__factory.connect(this.getAddresses().multicall, provider);
-  }
-
-  async getMulticallViewContract(): Promise<MulticallView> {
-    const provider = await this.getProvider();
-    return MulticallView__factory.connect(this.getAddresses().multicall, provider);
   }
 
   async getStarknetCoreContract(): Promise<StarknetCore> {
@@ -44,22 +44,29 @@ export class Web3Service {
   }
 
   async callWithdrawMulticall(multicallRequests: Array<MulticallRequest>) {
-    const multicall = await this.getMulticallContract();
+    const multicall = await this.getMulticallWithGasLimitContract();
     const length = multicallRequests.length;
-    return await multicall.tryAggregate(false, multicallRequests, {
-      maxPriorityFeePerGas: this.maxPriorityFeePerGas,
-      gasLimit: GAS_LIMIT_PER_WITHDRAWAL + (length === 1 ? 0 : GAS_LIMIT_MULTIPLE_WITHDRAWAL * length),
-    });
+
+    let gasLimit = BigNumber.from('0');
+
+    for (let index = 0; index < length; index++) {
+      const req = multicallRequests[index];
+      gasLimit = gasLimit.add(BigNumber.from(req.gas));
+    }
+
+    gasLimit = gasLimit.add(GAS_BUFFER_PER_WITHDRAWAL * multicallRequests.length);
+
+    return await multicall.tryAggregate(false, multicallRequests, { gasLimit });
   }
 
-  async callWithdraw(bridgeAddress: string, amount: BigNumber, receiverL1: string) {
+  async callWithdraw(bridgeAddress: string, amount: BigNumber, receiverL1: string, gasLimit: number) {
     const starknetTokenBridge = await this.getStarknetTokenBridgeContract(bridgeAddress);
-    return await starknetTokenBridge.withdraw(amount, receiverL1, { maxPriorityFeePerGas: this.maxPriorityFeePerGas });
+    return await starknetTokenBridge.withdraw(amount, receiverL1, { gasLimit });
   }
 
   async canConsumeMessageOnL1MulticallView(multicallRequests: Array<MulticallRequest>) {
-    const multicallView = await this.getMulticallViewContract();
-    return await multicallView.tryAggregate(false, multicallRequests);
+    const multicallView = await this.getMulticallContract();
+    return await multicallView.callStatic.tryAggregate(false, multicallRequests);
   }
 
   async getStateBlockNumber(): Promise<BigNumber> {
@@ -81,7 +88,7 @@ export class Web3Service {
     const provider = (await this.getProvider()).provider as ethers.providers.JsonRpcProvider;
     const baseFeePerGasHistoryList: BaseFeePerGasHistory = await provider.send('eth_feeHistory', [
       numberOfBlocks,
-      BigNumber.from(blockNumber).toHexString().replace("0x0", "0x"),
+      BigNumber.from(blockNumber).toHexString().replace('0x0', '0x'),
       [],
     ]);
     return baseFeePerGasHistoryList;

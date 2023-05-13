@@ -7,6 +7,7 @@ export interface NetworkContractAddress {
 
 export interface ContractAddress {
   multicall: string;
+  multicallGasLimit: string;
   starknetCore: string;
 }
 
@@ -18,6 +19,7 @@ export interface Provider {
 export interface MulticallRequest {
   target: string;
   callData: string;
+  gas: string
 }
 
 export interface MulticallResponse {
