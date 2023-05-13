@@ -20,12 +20,12 @@ export class GasController {
   @Get(':token/:timestamp')
   async getGasCostPerTimestamp(@Param('timestamp') timestamp: number, @Param('token') token: string) {
     const listBridgeMetadata = networkListBridgeMetadata(this.configService.get('NETWORK_ID'));
-    if (!listBridgeMetadata[token]) {
+    if (!listBridgeMetadata[token.toLowerCase()]) {
       throw new BadRequestException("Token not handled");
     }
 
     try {
-      const gasCost = (await this.gasService.getGasCostPerTimestamp(timestamp, token)).toString();
+      const gasCost = (await this.gasService.getGasCostPerTimestamp(timestamp, token.toLowerCase())).toString();
       return {
         status: 'ok',
         message: 'success',
