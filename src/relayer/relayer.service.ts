@@ -498,12 +498,12 @@ export class RelayerService {
   };
 
   checkNetworkHighFees = async () => {
-    if (!this.networkFeesMetadata.isHighFee) return;
+    if (!this.networkFeesMetadata?.isHighFee) return;
     await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
       network: this.networkId,
-      networkCost: this.networkFeesMetadata.networkCost,
-      usersPaid: this.networkFeesMetadata.usersPaid,
-      numberOfWithdrawals: this.networkFeesMetadata.numberOfWithdrawals,
+      networkCost: this.networkFeesMetadata?.networkCost,
+      usersPaid: this.networkFeesMetadata?.usersPaid,
+      numberOfWithdrawals: this.networkFeesMetadata?.numberOfWithdrawals,
     });
   };
 }
