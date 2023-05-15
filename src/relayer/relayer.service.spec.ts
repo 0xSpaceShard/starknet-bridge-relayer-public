@@ -552,4 +552,9 @@ describe('RelayerService', () => {
 
     expect(status).toEqual(true);
   });
+
+  it.only('Success checkNetworkHighFees', async () => {
+    jest.spyOn(RelayerNotifications, 'emitHighNetworkFees').mockImplementation()
+    await service.checkNetworkHighFees()
+  });
 });
