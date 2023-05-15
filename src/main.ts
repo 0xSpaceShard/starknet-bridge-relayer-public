@@ -18,6 +18,9 @@ async function bootstrap() {
   app.enableVersioning({ type: VersioningType.URI });
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
+  app.enableCors({
+    origin: '*',
+  });
 
   // swagger
   const swaggerConfig = new DocumentBuilder().setTitle(APP_DESCRIPTION).setVersion(APP_VERSION).build();
