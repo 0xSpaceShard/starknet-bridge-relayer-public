@@ -15,7 +15,7 @@ export const getNetworkConfig = (network: string): NetworkConfig => {
     default:
       // testnet
       return {
-        sleepAfterSuccessExec: 14400000,
+        sleepAfterSuccessExec: 86400000,
         sleepAfterFailExec: 600000,
         chunk: 50,
       };
