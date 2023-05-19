@@ -25,6 +25,11 @@ http://0.0.0.0:3000/api
 http://0.0.0.0:3000/metric
 ```
 
+### Get Gas cost
+```sh
+http://0.0.0.0:3000/api/v1/gas-cost/{timestamp}
+```
+
 ### Tests
 #### Run unit tests
 ```sh
