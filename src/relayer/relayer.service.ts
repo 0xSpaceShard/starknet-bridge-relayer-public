@@ -65,15 +65,15 @@ export class RelayerService {
         } else {
           this.logger.log('Nothing to process.');
         }
+        this.logger.log(`Relayer sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`);
+        await sleep(this.networkConfig.sleepAfterSuccessExec);
       } catch (error: any) {
-        this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`, {
+        this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterFailExec / 1000} sec`, {
           error,
         });
         await sleep(this.networkConfig.sleepAfterFailExec);
         continue;
       }
-      this.logger.log(`Relayer sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`);
-      await sleep(this.networkConfig.sleepAfterSuccessExec);
     }
   }
 
