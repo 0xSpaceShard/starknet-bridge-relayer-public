@@ -260,7 +260,7 @@ export class RelayerService {
               withdrawal.amount,
             ),
           ]),
-          gas: bridgeMetadata.gas,
+          gas: bridgeMetadata.gas + 40000,
         });
       }
     }
