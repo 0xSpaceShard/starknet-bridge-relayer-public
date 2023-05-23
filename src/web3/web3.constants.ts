@@ -22,4 +22,4 @@ export const getProviderURLs = (configs: ConfigService): Array<Provider> => {
   ];
 };
 
-export const GAS_BUFFER_PER_WITHDRAWAL = 10000
+export const GAS_BUFFER_PER_WITHDRAWAL = 15000
