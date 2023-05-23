@@ -4,6 +4,7 @@ Starknet Relay is a service that consumes Starknet withdrawals on L1. When the u
 ## Development
 
 ### Install
+Install packages
 ```sh
 yarn
 ```
