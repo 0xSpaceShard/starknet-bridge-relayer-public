@@ -38,7 +38,7 @@ yarn test
 ```
 
 #### Run e2e tests
-0. Start the services
+1. Start the services
 ```sh
 cd e2e
 ```
@@ -46,11 +46,11 @@ cd e2e
 ```sh
 make e2e-up
 ```
-2. Restore the database
+3. Restore the database
 ```sh
 make e2e-setup
 ```
-3. Run tests
+4. Run tests
 ```sh
 make e2e-test
 ```
