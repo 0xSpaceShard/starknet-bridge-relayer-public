@@ -9,7 +9,6 @@ export const getNetworkConfig = (network: string): NetworkConfig => {
     case 'mainnet':
       return {
         sleepAfterSuccessExec: 28800000,
-        28800000
         sleepAfterFailExec: 600000,
         chunk: 50,
       };
