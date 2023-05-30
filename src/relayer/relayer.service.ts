@@ -445,7 +445,7 @@ export class RelayerService {
 
     let timestamp = new Date(withdrawal.timestamp).getTime() / 1000;
 
-    const validationAttempts = 2;
+    const validationAttempts = 5;
     for (let i = 0; i < validationAttempts; i++) {
       try {
         const gasCost = await this.gasService.getGasCostPerTimestamp(timestamp, withdrawal.bridgeAddress);
