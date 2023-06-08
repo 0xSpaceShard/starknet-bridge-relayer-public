@@ -260,7 +260,7 @@ export class RelayerService {
               withdrawal.amount,
             ),
           ]),
-          gas: String(Number(bridgeMetadata.gas) + 40000),
+          gas: String(Number(bridgeMetadata.gas) + 20000),
         });
       }
     }
@@ -296,7 +296,7 @@ export class RelayerService {
       multicallRequests.push({
         target: bridgeMetadata.l1BridgeAddress,
         callData: this.web3Service.encodeBridgeToken('withdraw', [withdrawal.amount, l1RecipientDecoded]),
-        gas: String(Number(bridgeMetadata.gas) + 40000),
+        gas: String(Number(bridgeMetadata.gas) + 20000),
       });
     }
     return multicallRequests;
