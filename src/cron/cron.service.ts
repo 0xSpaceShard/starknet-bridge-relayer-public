@@ -17,12 +17,12 @@ export class CronService {
     await this.relayerService.run();
   }
 
-  @Cron(CronExpression.EVERY_3_HOURS)
+  @Cron(CronExpression.EVERY_2_HOURS)
   async relayerBalance() {
     await this.relayerService.checkRelayerBalance();
   }
 
-  @Cron(CronExpression.EVERY_2_HOURS)
+  @Cron(CronExpression.EVERY_3_HOURS)
   async highNetworkFees() {
     await this.relayerService.checkNetworkHighFees();
   }
