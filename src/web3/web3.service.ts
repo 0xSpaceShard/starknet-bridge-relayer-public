@@ -9,12 +9,21 @@ import {
   Multicall,
   Multicall__factory,
 } from './generated';
-import { ADDRESSES, GAS_BUFFER_PER_WITHDRAWAL, getProviderURLs } from './web3.constants';
+import {
+  ADDRESSES,
+  GAS_BUFFER_PER_WITHDRAWAL,
+  getNetworkEthAddress,
+  getProviderURLs,
+  getRelayerAddress,
+} from './web3.constants';
 import { ConfigService } from 'common/config';
 import { BigNumber, ethers } from 'ethers';
 import { BaseFeePerGasHistory, ContractAddress, MulticallRequest, Provider } from './web3.interface';
 import * as StarknetCoreABI from './abis/StarknetCore.json';
 import * as StarknetTokenBridgeABI from './abis/StarknetTokenBridge.json';
+import { Contract, Provider as sProvider } from 'starknet';
+import fs from 'fs';
+import * as STARKNET_ERC20_ABI from "./starknet_abis/erc20.json"
 
 @Injectable()
 export class Web3Service {
@@ -108,6 +117,22 @@ export class Web3Service {
     const wallet = await this.getProvider();
     return await wallet.provider.getBalance(wallet.address);
   };
+
+  getRelayerL2Balance = async (): Promise<BigNumber> => {
+    const networkId = this.configService.get('NETWORK_ID');
+    const provider: sProvider = await this.getL2Provider(networkId);
+
+    const relayerAddress = getRelayerAddress(networkId);
+    const ethAddress = getNetworkEthAddress(networkId);
+    const erc20Contract = new Contract(STARKNET_ERC20_ABI, ethAddress, provider);
+    const { balance } = await erc20Contract.call('balanceOf', [relayerAddress]);
+    return BigNumber.from(balance.toString());
+  };
+
+  async getL2Provider(networkId: string) {
+    const network = networkId == 'mainnet' ? 'mainnet-alpha' : 'goerli-alpha';
+    return new sProvider({ sequencer: { network } });
+  }
 
   async getProvider() {
     const providerURLs: Array<Provider> = getProviderURLs(this.configService);
