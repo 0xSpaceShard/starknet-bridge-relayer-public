@@ -23,3 +23,21 @@ export const getProviderURLs = (configs: ConfigService): Array<Provider> => {
 };
 
 export const GAS_BUFFER_PER_WITHDRAWAL = 15000
+
+export const getRelayerAddress = (networkId: string) => {
+  switch (networkId) {
+    case "mainnet":
+      return "0x06e02b62E101b44382D030d7aeE5528Bf65eed13D3B2D5Da3DFA883a2e1CE5f7"
+    default:
+      return "0x027f237537479fd27551379d1acc58f5448386a7094aac9b269e5d57aaf9d8c7"
+  }
+}
+
+export const getNetworkEthAddress = (networkId: string) => {
+  switch (networkId) {
+    case "mainnet":
+      return "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+    default:
+      return "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+  }
+}

@@ -33,6 +33,10 @@ export const getMessageHash = (
 };
 
 export const formatDecimals = (value: BigNumber): string => {
-  if (!value.toString()) return "0"
+  if (!value.toString()) return '0';
   return ethers.utils.formatUnits(value, 18).toString();
+};
+
+export const formatBalance = (value: BigNumber) => {
+  return ethers.utils.formatEther(value);
 };

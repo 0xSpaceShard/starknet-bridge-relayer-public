@@ -23,7 +23,7 @@ describe('Relayer (e2e)', () => {
     await moduleFixture.close();
   });
 
-  it.only('Should fetch block number by timestamp', async () => {
+  it('Should fetch block number by timestamp', async () => {
     expect(await gasService.fetchBlockNumberByTimestamp(1682836860 + 3600)).toEqual(8916425)
   });
 });

@@ -17,7 +17,7 @@ import { ADDRESSES } from 'web3/web3.constants';
 import { BigNumber, ethers } from 'ethers';
 import { createMock } from '@golevelup/ts-jest';
 import { Withdrawal } from 'indexer/entities';
-import { getMessageHash } from './relayer.utils';
+import { formatBalance, getMessageHash } from './relayer.utils';
 import { GasService } from 'http/gas/gas.service';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { RelayerNotifications } from './notification/notifications';
@@ -396,7 +396,11 @@ describe('RelayerService', () => {
         return createMock<ethers.ContractTransaction>();
       });
 
-    let length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    let length = await service.consumeMessagesOnL1(
+      BigNumber.from('100'),
+      multicallRequestConsumeMessagesOnL1Mock,
+      limit,
+    );
     expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 5;
@@ -406,7 +410,7 @@ describe('RelayerService', () => {
         expect(multicall.length).toEqual(5);
         return createMock<ethers.ContractTransaction>();
       });
-    length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    length = await service.consumeMessagesOnL1(BigNumber.from('100'), multicallRequestConsumeMessagesOnL1Mock, limit);
     expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
 
     limit = 6;
@@ -420,7 +424,7 @@ describe('RelayerService', () => {
         expect(multicall.length).toEqual(4);
         return createMock<ethers.ContractTransaction>();
       });
-    length = await service.consumeMessagesOnL1(multicallRequestConsumeMessagesOnL1Mock, limit);
+    length = await service.consumeMessagesOnL1(BigNumber.from('100'), multicallRequestConsumeMessagesOnL1Mock, limit);
     expect(length).toEqual(Math.ceil(multicallRequestConsumeMessagesOnL1Mock.length / limit));
   });
 
@@ -509,7 +513,7 @@ describe('RelayerService', () => {
           return createMock<ethers.ContractTransaction>();
         },
       );
-    expect(await service.consumeMessagesOnL1([multicallData], 50)).toEqual(1);
+    expect(await service.consumeMessagesOnL1(BigNumber.from('100'), [multicallData], 50)).toEqual(1);
   });
 
   it('Success checkIfGasCostCoverTheTransaction', async () => {
@@ -553,8 +557,31 @@ describe('RelayerService', () => {
     expect(status).toEqual(true);
   });
 
-  it.only('Success checkNetworkHighFees', async () => {
-    jest.spyOn(RelayerNotifications, 'emitHighNetworkFees').mockImplementation()
-    await service.checkNetworkHighFees()
+  it('Success checkNetworkHighFees', async () => {
+    jest.spyOn(RelayerNotifications, 'emitHighNetworkFees').mockImplementation();
+    await service.checkNetworkHighFees();
+  });
+
+  it('Success formatBalance', async () => {
+    expect(formatBalance(BigNumber.from('1000'))).toEqual('0.000000000000001');
+    expect(formatBalance(ethers.utils.parseEther('1'))).toEqual('1.0');
+  });
+
+  it('Success formatBalance', async () => {
+    jest.spyOn(web3Service, 'getRelayerL1Balance').mockReturnValue(Promise.resolve(ethers.utils.parseEther('100')));
+    jest.spyOn(web3Service, 'getRelayerL2Balance').mockReturnValue(Promise.resolve(ethers.utils.parseEther('200')));
+
+    let { l1Balance, l2Balance } = await service.getRelayerBalances();
+
+    expect(l1Balance).toEqual('100.0');
+    expect(l2Balance).toEqual('200.0');
+
+    jest.spyOn(web3Service, 'getRelayerL1Balance').mockImplementation(async () => {
+      throw 'Error to get L1';
+    });
+
+    ({ l1Balance, l2Balance } = await service.getRelayerBalances());
+    expect(l1Balance).toEqual('NA');
+    expect(l2Balance).toEqual('NA');
   });
 });
