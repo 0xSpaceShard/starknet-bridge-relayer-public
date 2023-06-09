@@ -33,6 +33,8 @@ describe('Relayer (e2e)', () => {
   let indexerService: IndexerService;
   let web3Service: Web3Service;
 
+  const dbPath = './e2e/data/dump/eth_db/withdraw.bson';
+
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [RelayerModule],
@@ -45,7 +47,7 @@ describe('Relayer (e2e)', () => {
 
     provider = new ethers.providers.JsonRpcProvider('http://hardhat:8545');
     const privateKey = process.env.PRIVATE_KEY;
-    const network = "goerli";
+    const network = 'goerli';
     signer = new ethers.Wallet(privateKey, provider);
     listBridgeMetadata = networkListBridgeMetadata(network);
     coreAddresses = ADDRESSES[network];
@@ -95,11 +97,7 @@ describe('Relayer (e2e)', () => {
 
     await starknet.setStateBlockNumber(stateBlock);
 
-    const withdrawals: WithdrawalDoc[] = decodeBSONFile(
-      './e2e/data/dump/starknet_bridge_indexer/withdraw.bson',
-      docs,
-      0,
-    );
+    const withdrawals: WithdrawalDoc[] = decodeBSONFile(dbPath, docs, 0);
 
     const allMessageHashes = [];
     const validMessageHashes = [];
@@ -203,11 +201,7 @@ describe('Relayer (e2e)', () => {
 
     await starknet.setStateBlockNumber(stateBlock);
 
-    const withdrawals: WithdrawalDoc[] = decodeBSONFile(
-      './e2e/data/dump/starknet_bridge_indexer/withdraw.bson',
-      docs,
-      0,
-    );
+    const withdrawals: WithdrawalDoc[] = decodeBSONFile(dbPath, docs, 0);
 
     const allMessageHashes = [];
     const validMessageHashes = [];
@@ -308,12 +302,12 @@ describe('Relayer (e2e)', () => {
       {
         callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
-        gas: '100000'
+        gas: '100000',
       },
       {
         callData: '0xa46efaf30e19665ae684518682f0f3b8b495c78869a082d4b55235f158e0e66b1106e4be',
         target: '0xde29d060D45901Fb19ED6C6e959EB22d8626708e',
-        gas: '100000'
+        gas: '100000',
       },
     ];
     let tx = await web3Service.callWithdrawMulticall(hashes);
@@ -326,7 +320,7 @@ describe('Relayer (e2e)', () => {
     expect((await starknet.l2ToL1Messages(msgHash)).toNumber()).not.toEqual(0);
     tx = await web3Service.callWithdrawMulticall([hashes[0]]);
 
-    expect(tx.gasLimit.toNumber()).toEqual(Number(hashes[0].gas)+ GAS_BUFFER_PER_WITHDRAWAL);
+    expect(tx.gasLimit.toNumber()).toEqual(Number(hashes[0].gas) + GAS_BUFFER_PER_WITHDRAWAL);
     receipt = await provider.getTransactionReceipt(tx.hash);
     expect(receipt.gasUsed.toNumber()).toBeLessThan(Number(hashes[0].gas) + GAS_BUFFER_PER_WITHDRAWAL);
   });
@@ -353,11 +347,7 @@ describe('Relayer (e2e)', () => {
 
     await starknet.setStateBlockNumber(stateBlock);
 
-    const withdrawals: WithdrawalDoc[] = decodeBSONFile(
-      './e2e/data/dump/starknet_bridge_indexer/withdraw.bson',
-      docs,
-      0,
-    );
+    const withdrawals: WithdrawalDoc[] = decodeBSONFile(dbPath, docs, 0);
 
     const allMessageHashes = [];
     const validMessageHashes = [];
@@ -448,16 +438,16 @@ describe('Relayer (e2e)', () => {
   });
 
   it('Check the relayer balance', async () => {
-    const wallet = await web3Service.getProvider()
-    const balance = await wallet.getBalance()
+    const wallet = await web3Service.getProvider();
+    const balance = await wallet.getBalance();
 
     if (balance.gt(MinimumEthBalance)) {
       await wallet.sendTransaction({
         to: ethers.constants.AddressZero,
-        value: balance.sub("90000000000000000").toHexString()
-      })
+        value: balance.sub('90000000000000000').toHexString(),
+      });
     }
 
-    await relayerService.checkRelayerBalance()
-  })
+    await relayerService.checkRelayerBalance();
+  });
 });
