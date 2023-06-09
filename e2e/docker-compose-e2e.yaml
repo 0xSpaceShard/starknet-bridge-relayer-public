@@ -8,7 +8,7 @@ services:
       - 27017:27017
 
   indexer:
-    image: shardastronaut/stargate-bridge-indexer:latest
+    image: shardlabs/starkgate-bridge-indexer:latest
     restart: always
     environment:
       MONGO_URL: ${MONGO_URL}

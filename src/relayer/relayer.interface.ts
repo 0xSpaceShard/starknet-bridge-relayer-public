@@ -1,3 +1,4 @@
+import { BigNumber } from 'ethers/lib/ethers';
 import { Withdrawal } from 'indexer/entities';
 
 export interface RequestWithdrawalAtBlocks {
@@ -31,4 +32,9 @@ export interface CheckCanProcessWithdrawalsResults {
   fromBlock: number;
   toBlock: number;
   stateBlockNumber: number;
+}
+
+export interface RelayerBalances {
+  l1Balance: string;
+  l2Balance: string;
 }

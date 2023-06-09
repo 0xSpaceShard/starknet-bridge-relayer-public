@@ -1,0 +1,20 @@
+[
+    {
+      "name": "balanceOf",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "felt"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "balance",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ]
+  

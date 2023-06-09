@@ -11,18 +11,18 @@ export class CronService {
     private readonly relayerService: RelayerService,
   ) {}
 
-  @Timeout(20000)
+  @Timeout(60000)
   async relayer() {
     this.logger.log('Start the relayer job.');
     await this.relayerService.run();
   }
 
-  @Cron(CronExpression.EVERY_3_HOURS)
+  @Cron(CronExpression.EVERY_2_HOURS)
   async relayerBalance() {
     await this.relayerService.checkRelayerBalance();
   }
 
-  @Cron(CronExpression.EVERY_2_HOURS)
+  @Cron(CronExpression.EVERY_3_HOURS)
   async highNetworkFees() {
     await this.relayerService.checkNetworkHighFees();
   }

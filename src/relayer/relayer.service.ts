@@ -4,6 +4,7 @@ import { Web3Service } from 'web3/web3.service';
 import {
   CheckCanProcessWithdrawalsResults,
   ProcessWithdrawalsResults,
+  RelayerBalances,
   RequestWithdrawalAtBlocks,
 } from './relayer.interface';
 import { MulticallRequest, MulticallResponse } from 'web3/web3.interface';
@@ -16,7 +17,7 @@ import {
 import { MongoService } from 'storage/mongo/mongo.service';
 import { Withdrawal } from 'indexer/entities';
 import { IndexerService } from 'indexer/indexer.service';
-import { callWithRetry, formatDecimals, getMessageHash, sleep } from './relayer.utils';
+import { callWithRetry, formatBalance, formatDecimals, getMessageHash, sleep } from './relayer.utils';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrometheusService } from 'common/prometheus';
 import { ethers, BigNumber } from 'ethers';
@@ -147,16 +148,11 @@ export class RelayerService {
 
     // Consume the messages.
     if (allMulticallRequestsForMessagesCanBeConsumedOnL1.length > 0 && status) {
-      const numberOfTx = await this.consumeMessagesOnL1(
+      await this.consumeMessagesOnL1(
+        totalGasPaid,
         allMulticallRequestsForMessagesCanBeConsumedOnL1,
         NumberOfWithdrawalsToProcessPerTransaction,
       );
-      await RelayerNotifications.emitWithdrawalsProcessed(this.discordService, this.networkId, {
-        totalWithdrawalsProcessed,
-        numberOfTx,
-        totalGasCostPaid: formatDecimals(totalGasPaid),
-        networkGasCost: formatDecimals(networkCost),
-      });
       this.networkFeesMetadata = {};
     }
     // Store the last processed block on database.
@@ -302,13 +298,27 @@ export class RelayerService {
     return multicallRequests;
   }
 
-  async consumeMessagesOnL1(multicallRequest: Array<MulticallRequest>, limit: number): Promise<number> {
+  async consumeMessagesOnL1(
+    totalGasPaid: BigNumber,
+    multicallRequest: Array<MulticallRequest>,
+    limit: number,
+  ): Promise<number> {
+    this.logger.log('Start consume messages...');
     if (multicallRequest.length === 1) {
       const req = multicallRequest[0];
       const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
       const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1], Number(req.gas));
-      await tx.wait();
       this.logger.log('Call withdraw');
+      await tx.wait();
+      const { l1Balance, l2Balance } = await this.getRelayerBalances();
+
+      await RelayerNotifications.emitWithdrawalsProcessed(this.discordService, this.networkId, {
+        totalWithdrawals: 1,
+        relayerL1Balance: l1Balance,
+        relayerL2Balance: l2Balance,
+        usersPaid: formatBalance(totalGasPaid),
+        txHash: tx.hash,
+      });
       return 1;
     } else {
       const lenght = Math.ceil(multicallRequest.length / limit);
@@ -319,6 +329,15 @@ export class RelayerService {
         const tx = await this._consumeMessagesOnL1(multicallRequests);
         this.logger.log('Call multicall');
         await tx.wait();
+        const { l1Balance, l2Balance } = await this.getRelayerBalances();
+
+        await RelayerNotifications.emitWithdrawalsProcessed(this.discordService, this.networkId, {
+          totalWithdrawals: multicallRequests.length,
+          relayerL1Balance: l1Balance,
+          relayerL2Balance: l2Balance,
+          usersPaid: formatBalance(totalGasPaid.div(lenght)),
+          txHash: tx.hash,
+        });
       }
       return lenght;
     }
@@ -500,10 +519,33 @@ export class RelayerService {
   checkNetworkHighFees = async () => {
     if (!this.networkFeesMetadata?.isHighFee) return;
     await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
-      network: this.networkId,
-      networkCost: this.networkFeesMetadata?.networkCost,
-      usersPaid: this.networkFeesMetadata?.usersPaid,
-      numberOfWithdrawals: this.networkFeesMetadata?.numberOfWithdrawals,
+      totalWithdrawals: this.networkFeesMetadata?.numberOfWithdrawals,
+      usersPaid: formatBalance(BigNumber.from(this.networkFeesMetadata?.usersPaid)),
+      required: formatBalance(BigNumber.from(this.networkFeesMetadata?.networkCost)),
     });
+  };
+
+  getRelayerBalances = async (): Promise<RelayerBalances> => {
+    const res = await this.callWithRetry({
+      callback: async () => {
+        const l1Balance = await this.web3Service.getRelayerL1Balance();
+        const l2Balance = await this.web3Service.getRelayerL2Balance();
+
+        return {
+          l1Balance: formatBalance(l1Balance).toString(),
+          l2Balance: formatBalance(l2Balance).toString(),
+        };
+      },
+      errorCallback: (error: any) => {
+        this.logger.warn(`Error to get relayer balances: ${error}`);
+      },
+    });
+    if (!res) {
+      return {
+        l1Balance: 'NA',
+        l2Balance: 'NA',
+      };
+    }
+    return res;
   };
 }
