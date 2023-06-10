@@ -47,7 +47,7 @@ const l2BridgeAddressToL1Mainnet: ListBridgeMetadata = {
     l1TokenAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     l2TokenAddress: '0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8',
     l1BridgeAddress: '0xbb3400F107804DFB482565FF1Ec8D8aE66747605',
-    gas: '11000',
+    gas: '110000',
   },
   '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82': {
     name: 'Ether',
