@@ -465,11 +465,6 @@ export class RelayerService {
 
     let timestamp = new Date(withdrawal.timestamp).getTime() / 1000;
 
-    // Hot fix remove after 24h
-    if ("0x074761a8d48ce002963002becc6d9c3dd8a2a05b1075d55e5967f42296f16bd0" == withdrawal.bridgeAddress) {
-      return { status: true, amount: amountPaid };
-    }
-
     const validationAttempts = 5;
     for (let i = 0; i < validationAttempts; i++) {
       try {
