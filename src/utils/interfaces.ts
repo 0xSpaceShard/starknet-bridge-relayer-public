@@ -13,5 +13,6 @@ export interface BridgeMetadata {
   l1TokenAddress: string;
   l2TokenAddress: string;
   l1BridgeAddress: string;
+  gasPaid: string;
   gas: string;
 }

@@ -68,6 +68,7 @@ export class RelayerService {
         }
         this.logger.log(`Relayer sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`);
         await sleep(this.networkConfig.sleepAfterSuccessExec);
+        await this.canWakeupRelayer(stateBlockNumber, 300000, 600000);
       } catch (error: any) {
         this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterFailExec / 1000} sec`, {
           error,
@@ -91,6 +92,7 @@ export class RelayerService {
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
     let totalGasPaid: BigNumber = BigNumber.from('0');
     let totalGasToUse: BigNumber = BigNumber.from('0');
+    let allInvalidPaidGasCost = 0
 
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
@@ -118,9 +120,11 @@ export class RelayerService {
           multicallRequests: allMulticallRequests,
           totalPaid,
           totalGas,
+          totalInvalidPaidGasCost
         } = await this.getMulticallRequests(requestWithdrawalAtBlocks.withdrawals);
         totalGasPaid = totalGasPaid.add(totalPaid);
         totalGasToUse = totalGasToUse.add(totalGas);
+        allInvalidPaidGasCost += totalInvalidPaidGasCost
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
@@ -143,7 +147,7 @@ export class RelayerService {
     const { status, networkCost } = await this.checkIfGasCostCoverTheTransaction(
       totalGasPaid,
       totalGasToUse,
-      totalWithdrawalsProcessed,
+      totalWithdrawalsProcessed
     );
 
     // Consume the messages.
@@ -164,6 +168,7 @@ export class RelayerService {
       stateBlockNumber,
       totalWithdrawalsProcessed,
       totalWithdrawals,
+      allInvalidPaidGasCost
     };
   }
 
@@ -231,9 +236,10 @@ export class RelayerService {
 
   async getMulticallRequests(
     withdrawals: Array<Withdrawal>,
-  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber }> {
+  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber, totalInvalidPaidGasCost: number }> {
     let totalPaid: BigNumber = BigNumber.from('0');
     let totalGas: BigNumber = BigNumber.from('0');
+    let totalInvalidPaidGasCost = 0;
     const multicallRequests: Array<MulticallRequest> = [];
     const listBridgeMetadata: ListBridgeMetadata = networkListBridgeMetadata(this.networkId);
 
@@ -243,9 +249,12 @@ export class RelayerService {
       if (!bridgeMetadata) continue;
 
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
+      if (!status) {
+        totalInvalidPaidGasCost++
+      }
       if (bridgeMetadata.l1BridgeAddress && status) {
         totalPaid = totalPaid.add(amount);
-        totalGas = totalGas.add(bridgeMetadata.gas);
+        totalGas = totalGas.add(bridgeMetadata.gasPaid);
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [
@@ -260,7 +269,7 @@ export class RelayerService {
         });
       }
     }
-    return { multicallRequests, totalPaid, totalGas };
+    return { multicallRequests, totalPaid, totalGas, totalInvalidPaidGasCost };
   }
 
   getListOfValidMessagesToConsumedOnL1(
@@ -464,11 +473,6 @@ export class RelayerService {
 
     let timestamp = new Date(withdrawal.timestamp).getTime() / 1000;
 
-    // Hot fix remove after 24h
-    if ("0x074761a8d48ce002963002becc6d9c3dd8a2a05b1075d55e5967f42296f16bd0" == withdrawal.bridgeAddress) {
-      return { status: true, amount: amountPaid };
-    }
-
     const validationAttempts = 5;
     for (let i = 0; i < validationAttempts; i++) {
       try {
@@ -552,5 +556,28 @@ export class RelayerService {
       };
     }
     return res;
+  };
+
+  canWakeupRelayer = async (lastStateBlock: number, sleepDelay: number, retryDelay: number): Promise<number> => {
+    let lastUpdateStateTimestamp: number;
+    while (true) {
+      const currentStateBlock = (await this.web3Service.getStateBlockNumber()).toNumber();
+      if (currentStateBlock > lastStateBlock) {
+        this.logger.log(`L1 update state is in progress... sleep ${sleepDelay / 1000} sec`, {
+          currentStateBlock,
+          lastStateBlock,
+        });
+        lastStateBlock = currentStateBlock;
+        lastUpdateStateTimestamp = Date.now();
+        await sleep(sleepDelay);
+        continue;
+      }
+
+      if (lastUpdateStateTimestamp) {
+        await sleep(sleepDelay);
+        return currentStateBlock;
+      }
+      await sleep(retryDelay);
+    }
   };
 }
