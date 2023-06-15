@@ -585,24 +585,22 @@ describe('RelayerService', () => {
     expect(l2Balance).toEqual('NA');
   });
 
-  it('Success checkIfAmountPaidIsValid', async () => {
-    const res = await service.checkIfAmountPaidIsValid({
-      __typename: "",
-      amount: "100",
-      blockHeight: 1,
-      bridgeAddress: "0x074761a8d48ce002963002becc6d9c3dd8a2a05b1075d55e5967f42296f16bd0",
-      callerAddress: "0x",
-      l1Recipient: "0x",
-      timestamp: "00",
-      transfers: [
-        {
-          from_: '0x007bf1415672a805e247045d4d8c8d96c5b27973811bf523b822577ad8dd8665',
-          to: '0x027f237537479fd27551379d1acc58f5448386a7094aac9b269e5d57aaf9d8c7',
-          value: '80000000000000000',
-        },
-      ],
-    })
-    expect(res.status).toEqual(true);
-    expect(res.amount).toEqual(BigNumber.from("80000000000000000"));
-  });
+  it('Success canWakeupRelayer', async () => {
+    const stateBlockNumber = 120
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)))
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)))
+    const res = await service.canWakeupRelayer(100, 100, 100)
+    expect(res).toEqual(stateBlockNumber)
+    
+  })
+
+  it('Success canWakeupRelayer multiple state', async () => {
+    const stateBlockNumber = 103
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(100)))
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(101)))
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(102)))
+    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValue(Promise.resolve(BigNumber.from(stateBlockNumber)))
+    const res = await service.canWakeupRelayer(100, 100, 100)
+    expect(res).toEqual(stateBlockNumber)
+  })
 });
