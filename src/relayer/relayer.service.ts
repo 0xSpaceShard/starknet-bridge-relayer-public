@@ -246,7 +246,7 @@ export class RelayerService {
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
       if (bridgeMetadata.l1BridgeAddress && status) {
         totalPaid = totalPaid.add(amount);
-        totalGas = totalGas.add(bridgeMetadata.gas);
+        totalGas = totalGas.add(bridgeMetadata.gasPaid);
         multicallRequests.push({
           target: this.web3Service.getAddresses().starknetCore,
           callData: this.web3Service.encodeCalldataStarknetCore('l2ToL1Messages', [

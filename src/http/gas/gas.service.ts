@@ -71,7 +71,7 @@ export class GasService {
     }
 
     const listBridgeMetadata: ListBridgeMetadata = networkListBridgeMetadata(this.configService.get('NETWORK_ID'));
-    gasCost = await this.calculateGasCost(feeHistory, Number(listBridgeMetadata[token].gas));
+    gasCost = await this.calculateGasCost(feeHistory, Number(listBridgeMetadata[token].gasPaid));
     await this.cacheManager.set(`${String(blockNumber)}-${token}`, gasCost.toString(), CacheDuration24hInMs);
     this.logger.log('Calculate gas cost', { token, gasCost, blockNumber, ctimestamp, timestamp });
 
