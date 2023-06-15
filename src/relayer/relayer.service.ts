@@ -92,6 +92,7 @@ export class RelayerService {
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
     let totalGasPaid: BigNumber = BigNumber.from('0');
     let totalGasToUse: BigNumber = BigNumber.from('0');
+    let allInvalidPaidGasCost = 0
 
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
@@ -119,9 +120,11 @@ export class RelayerService {
           multicallRequests: allMulticallRequests,
           totalPaid,
           totalGas,
+          totalInvalidPaidGasCost
         } = await this.getMulticallRequests(requestWithdrawalAtBlocks.withdrawals);
         totalGasPaid = totalGasPaid.add(totalPaid);
         totalGasToUse = totalGasToUse.add(totalGas);
+        allInvalidPaidGasCost += totalInvalidPaidGasCost
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
@@ -144,7 +147,7 @@ export class RelayerService {
     const { status, networkCost } = await this.checkIfGasCostCoverTheTransaction(
       totalGasPaid,
       totalGasToUse,
-      totalWithdrawalsProcessed,
+      totalWithdrawalsProcessed
     );
 
     // Consume the messages.
@@ -165,6 +168,7 @@ export class RelayerService {
       stateBlockNumber,
       totalWithdrawalsProcessed,
       totalWithdrawals,
+      allInvalidPaidGasCost
     };
   }
 
@@ -232,9 +236,10 @@ export class RelayerService {
 
   async getMulticallRequests(
     withdrawals: Array<Withdrawal>,
-  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber }> {
+  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber, totalInvalidPaidGasCost: number }> {
     let totalPaid: BigNumber = BigNumber.from('0');
     let totalGas: BigNumber = BigNumber.from('0');
+    let totalInvalidPaidGasCost = 0;
     const multicallRequests: Array<MulticallRequest> = [];
     const listBridgeMetadata: ListBridgeMetadata = networkListBridgeMetadata(this.networkId);
 
@@ -244,6 +249,9 @@ export class RelayerService {
       if (!bridgeMetadata) continue;
 
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
+      if (!status) {
+        totalInvalidPaidGasCost++
+      }
       if (bridgeMetadata.l1BridgeAddress && status) {
         totalPaid = totalPaid.add(amount);
         totalGas = totalGas.add(bridgeMetadata.gasPaid);
@@ -261,7 +269,7 @@ export class RelayerService {
         });
       }
     }
-    return { multicallRequests, totalPaid, totalGas };
+    return { multicallRequests, totalPaid, totalGas, totalInvalidPaidGasCost };
   }
 
   getListOfValidMessagesToConsumedOnL1(

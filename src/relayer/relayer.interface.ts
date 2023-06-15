@@ -26,6 +26,7 @@ export interface ProcessWithdrawalsResults {
   stateBlockNumber: number;
   totalWithdrawalsProcessed: number;
   totalWithdrawals: number;
+  allInvalidPaidGasCost: number;
 }
 
 export interface CheckCanProcessWithdrawalsResults {
