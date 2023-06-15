@@ -68,6 +68,7 @@ export class RelayerService {
         }
         this.logger.log(`Relayer sleep ${this.networkConfig.sleepAfterSuccessExec / 1000} sec`);
         await sleep(this.networkConfig.sleepAfterSuccessExec);
+        await this.canWakeupRelayer(stateBlockNumber, 300000, 600000);
       } catch (error: any) {
         this.logger.error(`Error process withdrawals, sleep ${this.networkConfig.sleepAfterFailExec / 1000} sec`, {
           error,
@@ -552,5 +553,28 @@ export class RelayerService {
       };
     }
     return res;
+  };
+
+  canWakeupRelayer = async (lastStateBlock: number, sleepDelay: number, retryDelay: number): Promise<number> => {
+    let lastUpdateStateTimestamp: number;
+    while (true) {
+      const currentStateBlock = (await this.web3Service.getStateBlockNumber()).toNumber();
+      if (currentStateBlock > lastStateBlock) {
+        this.logger.log(`L1 update state is in progress... sleep ${sleepDelay / 1000} sec`, {
+          currentStateBlock,
+          lastStateBlock,
+        });
+        lastStateBlock = currentStateBlock;
+        lastUpdateStateTimestamp = Date.now();
+        await sleep(sleepDelay);
+        continue;
+      }
+
+      if (lastUpdateStateTimestamp) {
+        await sleep(sleepDelay);
+        return currentStateBlock;
+      }
+      await sleep(retryDelay);
+    }
   };
 }
