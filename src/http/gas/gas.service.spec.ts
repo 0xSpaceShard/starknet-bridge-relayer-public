@@ -16,8 +16,14 @@ import { ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { FeeHistory } from './gas.interface';
 import { CACHE_MANAGER } from '@nestjs/common';
-import { Cache } from 'cache-manager';
-import { CacheModule } from '@nestjs/cache-manager';
+import {
+  BaseFeePriceHistoryMock_mod_zero_0,
+  BaseFeePriceHistoryMock_mod_zero_1,
+  BaseFeePriceHistoryMock_mod_zero_2,
+  BaseFeePriceHistoryMock_mod_zero_3,
+  BaseFeePriceHistoryMock_mod_zero_4,
+  BaseFeePriceHistoryMock_mod_zero_5,
+} from './__mocks__/mod==0';
 
 describe('GasService', () => {
   let service: GasService;
@@ -54,7 +60,6 @@ describe('GasService', () => {
 
     service = module.get<GasService>(GasService);
     web3Service = module.get<Web3Service>(Web3Service);
-    // cacheService = module.get<CacheModule>(CacheModule);
   });
 
   it('should be defined', () => {
@@ -76,6 +81,7 @@ describe('GasService', () => {
     const limit = 1000;
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
     jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
+    jest.spyOn(service, 'getNumberOfBlocksToCalculateTheGasCost').mockReturnValue(1000);
     jest.spyOn(web3Service, 'fetchBaseFeePriceHistory').mockImplementation(async (fromBlock: number, lim: number) => {
       expect(fromBlock).toEqual(startBlockNumber);
       expect(lim).toEqual(limit);
@@ -98,6 +104,8 @@ describe('GasService', () => {
     const oldBlockNumber = 199000;
     const limit = 500;
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
+    jest.spyOn(service, 'apiSleep').mockImplementation();
+    jest.spyOn(service, 'getNumberOfBlocksToCalculateTheGasCost').mockReturnValue(1000);
     jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(9000000));
     jest
       .spyOn(web3Service, 'fetchBaseFeePriceHistory')
@@ -264,6 +272,7 @@ describe('GasService', () => {
   it('Success getGasCostPerTimestamp', async () => {
     let startBlockNumber = 8000000;
     let limit = 1000;
+    jest.spyOn(service, 'apiSleep').mockImplementation();
     jest.spyOn(service, 'getLimit').mockReturnValueOnce(limit);
     jest.spyOn(service, 'fetchBlockNumberByTimestamp').mockReturnValue(Promise.resolve(startBlockNumber));
     jest.spyOn(service, 'getNumberOfBlocksToCalculateTheGasCost').mockReturnValue(limit);
@@ -277,7 +286,10 @@ describe('GasService', () => {
         return BaseFeePriceHistoryMock_8000000_7999001;
       });
 
-    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
+    const avgGasCost1 = await service.getGasCostPerTimestamp(
+      1669087968,
+      '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+    );
     expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
 
     limit = 500;
@@ -294,7 +306,10 @@ describe('GasService', () => {
         expect(lim).toEqual(limit);
         return BaseFeePriceHistoryMock_8000000_7999501;
       });
-    const avgGasCost2 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
+    const avgGasCost2 = await service.getGasCostPerTimestamp(
+      1669087968,
+      '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+    );
     expect(avgGasCost2.mod(5).toNumber()).toEqual(0);
     expect(avgGasCost1).toEqual(avgGasCost2);
   });
@@ -329,7 +344,10 @@ describe('GasService', () => {
         };
       });
 
-    const avgGasCost1 = await service.getGasCostPerTimestamp(1669087968, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82");
+    const avgGasCost1 = await service.getGasCostPerTimestamp(
+      1669087968,
+      '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+    );
     expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
   });
 
@@ -347,6 +365,7 @@ describe('GasService', () => {
     const startBlockNumber = 200000;
     const oldBlockNumber = 199000;
     const limit = 1000;
+    // jest.spyOn(service, 'apiSleep').mockImplementation();
     jest.spyOn(service, 'getLimit').mockReturnValue(limit);
     jest.spyOn(web3Service, 'getCurrentBlockNumber').mockImplementation(async (): Promise<number> => {
       throw 'Error to fetch block number';
@@ -359,5 +378,62 @@ describe('GasService', () => {
     }
   });
 
-  
+  it('Success getGasCostPerTimestamp when the mod operation returns ZERO', async () => {
+    let startBlockNumber = 17499760;
+    let limit = 1000;
+    jest.spyOn(service, 'getLimit').mockReturnValueOnce(limit);
+    jest.spyOn(service, 'fetchBlockNumberByTimestamp').mockReturnValue(Promise.resolve(startBlockNumber));
+    jest.spyOn(web3Service, 'getCurrentBlockNumber').mockReturnValue(Promise.resolve(17509760));
+
+    jest
+      .spyOn(web3Service, 'fetchBaseFeePriceHistory')
+      .mockImplementation(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_0,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_1,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_2,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_3,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_4,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      })
+      .mockImplementationOnce(async (fromBlock: number, lim: number) => {
+        return {
+          baseFeePerGas: BaseFeePriceHistoryMock_mod_zero_5,
+          gasUsedRatio: [],
+          oldestBlock: '',
+        };
+      });
+
+    const avgGasCost1 = await service.getGasCostPerTimestamp(
+      1687008736,
+      '0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82',
+    );
+    expect(avgGasCost1.mod(5).toNumber()).toEqual(0);
+  });
 });

@@ -126,7 +126,7 @@ export class GasService {
         for (let i = 0; i < len; i++) {
           let baseFeePerGasHistory: BaseFeePerGasHistory = await this.cacheManager.get(String(fromBlock));
           if (!baseFeePerGasHistory?.baseFeePerGas) {
-            await sleep(250);
+            await this.apiSleep();
             if (fromBlock > currentBlockNumber) {
               this.logger.log('Fetch fee data', {
                 i,
@@ -163,6 +163,10 @@ export class GasService {
             feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(mod, limit));
           } else if (mod > 0 && i == len - 1) {
             feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(0, lastBlockNumber % limit));
+          } else if (mod == 0 && i == len - 1 && this.getNumberOfBlocksToCalculateTheGasCost() % limit != 0) {
+            feeHistory.baseFees.push(
+              ...baseFeePerGasHistory.baseFeePerGas.slice(0, this.getNumberOfBlocksToCalculateTheGasCost() % limit),
+            );
           } else {
             feeHistory.baseFees.push(...baseFeePerGasHistory.baseFeePerGas.slice(0, limit));
           }
@@ -233,5 +237,9 @@ export class GasService {
 
   getFeeShiftPercentage = (): number => {
     return FeeShiftPercentage;
+  };
+
+  apiSleep = async () => {
+    await sleep(250);
   };
 }
