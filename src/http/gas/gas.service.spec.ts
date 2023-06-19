@@ -24,6 +24,7 @@ import {
   BaseFeePriceHistoryMock_mod_zero_4,
   BaseFeePriceHistoryMock_mod_zero_5,
 } from './__mocks__/mod==0';
+import { PrometheusService } from 'common/prometheus';
 
 describe('GasService', () => {
   let service: GasService;
@@ -38,6 +39,7 @@ describe('GasService', () => {
       providers: [
         GasService,
         ConfigService,
+        PrometheusService,
         Web3Service,
         {
           provide: 'NestWinston',
