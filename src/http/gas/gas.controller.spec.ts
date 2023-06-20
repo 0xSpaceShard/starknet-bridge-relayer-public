@@ -5,6 +5,7 @@ import { ConfigService } from 'common/config';
 import { createMock } from '@golevelup/ts-jest';
 import { BigNumber } from 'ethers';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { PrometheusService } from 'common/prometheus';
 
 describe('GasController', () => {
   let controller: GasController;
@@ -15,6 +16,7 @@ describe('GasController', () => {
       controllers: [GasController],
       providers: [
         ConfigService,
+        PrometheusService,
         {
           provide: GasService,
           useValue: createMock(),
