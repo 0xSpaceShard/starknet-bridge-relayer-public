@@ -5,12 +5,14 @@ import { HttpModule } from '@nestjs/axios';
 import { Web3Module } from 'web3/web3.module';
 import { ConfigModule } from 'common/config';
 import { GasController } from './gas.controller';
+import { PrometheusModule } from 'common/prometheus';
 
 @Module({
   imports: [
     LoggerModule,
     Web3Module,
     ConfigModule,
+    PrometheusModule,
     CacheModule.register(),
     HttpModule.register({
       timeout: 5000,

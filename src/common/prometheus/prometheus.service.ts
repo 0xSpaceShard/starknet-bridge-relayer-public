@@ -50,13 +50,6 @@ export class PrometheusService {
     labelNames: ['method'],
   });
 
-  public web3ConsumeMessageRequests = this.getOrCreateMetric('Counter', {
-    prefix: true,
-    name: 'web3_consume_message_requests',
-    help: 'Web3 consume message success requests',
-    labelNames: ['method', 'txHash'],
-  });
-
   public web3Errors = this.getOrCreateMetric('Counter', {
     prefix: true,
     name: 'web3_errors',
@@ -75,6 +68,41 @@ export class PrometheusService {
     prefix: true,
     name: 'storage_errors',
     help: 'Storage failed requests',
+    labelNames: ['method'],
+  });
+
+  public gasCostRequests = this.getOrCreateMetric('Counter', {
+    prefix: true,
+    name: 'gas_cost_requests',
+    help: 'Gas cost success requests',
+    labelNames: ['method'],
+  });
+
+  public gasCostErrors = this.getOrCreateMetric('Counter', {
+    prefix: true,
+    name: 'gas_cost_errors',
+    help: 'Gas cost failed requests',
+    labelNames: ['method'],
+  });
+
+  public lowGasCostError = this.getOrCreateMetric('Counter', {
+    prefix: true,
+    name: 'low_gas_cost_errors',
+    help: 'Gas cost can not cover the transactions',
+    labelNames: ['method'],
+  });
+
+  public invalidGasCostError = this.getOrCreateMetric('Counter', {
+    prefix: true,
+    name: 'invalid_gas_cost_errors',
+    help: 'Invalid gas cost paid by the user',
+    labelNames: ['method'],
+  });
+
+  public checkIfUserPaidCorrectGasCostError = this.getOrCreateMetric('Counter', {
+    prefix: true,
+    name: 'calculate_paid_gas_cost_errors',
+    help: 'Error to calculate the amount paid by the user',
     labelNames: ['method'],
   });
 }

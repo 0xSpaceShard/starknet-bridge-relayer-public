@@ -176,18 +176,19 @@ export class RelayerService {
     return await this.callWithRetry({
       callback: async () => {
         let lastProcessedBlockNumber = (await this.mongoService.getLastProcessedBlock()).blockNumber;
+        this.prometheusService.storageRequests.labels({ method: 'getLastProcessedBlock' }).inc();
+
         if (!lastProcessedBlockNumber) {
           await this.updateProcessedBlock(this.firstBlock);
           lastProcessedBlockNumber = this.firstBlock;
         }
         this.logger.log('Get last processed block number', { lastProcessedBlockNumber });
-        this.prometheusService.storageRequests.labels({ method: 'getLastProcessedBlock-updateProcessedBlock' }).inc();
         return lastProcessedBlockNumber;
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to get last processed block number: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.storageErrors.labels({ method: 'getLastProcessedBlock-updateProcessedBlock' }).inc();
+        this.prometheusService.storageErrors.labels({ method: 'getLastProcessedBlock' }).inc();
         throw errMessage;
       },
     });
@@ -209,13 +210,13 @@ export class RelayerService {
         callback: async () => {
           const withdrawals = await this.indexerService.getWithdraws(limit, offset, fromBlock, endBlock);
           this.logger.log('List the withdrawals', { fromBlock, endBlock, withdrawalsLength: withdrawals.length });
-          this.prometheusService.indexerRequests.labels({ method: 'getWithdraws' }).inc();
+          this.prometheusService.indexerRequests.labels({ method: 'getRequestWithdrawalAtBlocks' }).inc();
           return withdrawals;
         },
         errorCallback: (error: any) => {
           const errMessage = `Error List the withdrawals: ${error}`;
           this.logger.error(errMessage);
-          this.prometheusService.indexerErrors.labels({ method: 'getWithdraws' }).inc();
+          this.prometheusService.indexerErrors.labels({ method: 'getRequestWithdrawalAtBlocks' }).inc();
           throw errMessage;
         },
       });
@@ -250,6 +251,7 @@ export class RelayerService {
 
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
       if (!status) {
+        this.prometheusService.invalidGasCostError.labels({method: "checkIfAmountPaidIsValid"}).inc()
         totalInvalidPaidGasCost++
       }
       if (bridgeMetadata.l1BridgeAddress && status) {
@@ -357,9 +359,6 @@ export class RelayerService {
       callback: async () => {
         const tx = await this.web3Service.callWithdrawMulticall(multicallRequest);
         this.logger.log('Consume messages tx', { txHash: tx.hash, withdrawals: multicallRequest.length });
-        this.prometheusService.web3ConsumeMessageRequests
-          .labels({ method: 'callWithdrawMulticall', txHash: tx.hash })
-          .inc();
         return tx;
       },
       errorCallback: (error: any) => {
@@ -410,13 +409,13 @@ export class RelayerService {
       callback: async () => {
         const res = await this.web3Service.canConsumeMessageOnL1MulticallView(allMulticallRequests);
         this.logger.log('Check can consume message on L1 multicall view', { requestsNum: allMulticallRequests.length });
-        this.prometheusService.web3Requests.labels({ method: 'canConsumeMessageOnL1MulticallView' }).inc();
+        this.prometheusService.web3Requests.labels({ method: 'getListOfL2ToL1MessagesResult' }).inc();
         return res;
       },
       errorCallback: (error: any) => {
         const errMessage = `Error to check messages can be consumed on L1 multicall view: ${error}`;
         this.logger.error(errMessage);
-        this.prometheusService.web3Errors.labels({ method: 'canConsumeMessageOnL1MulticallView' }).inc();
+        this.prometheusService.web3Errors.labels({ method: 'getListOfL2ToL1MessagesResult' }).inc();
         throw errMessage;
       },
     });
@@ -426,8 +425,12 @@ export class RelayerService {
     return await this.callWithRetry({
       callback: async () => {
         let lastProcessedBlockNumber = await this.getLastProcessedBlock();
+
         let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
+        this.prometheusService.indexerRequests.labels({ method: 'getLastIndexedBlock' }).inc();
+        
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
+        this.prometheusService.web3Requests.labels({ method: 'getStateBlockNumber' }).inc();
 
         lastIndexedBlock = lastIndexedBlock !== undefined ? lastIndexedBlock : lastProcessedBlockNumber;
         const toBlock = Math.min(lastIndexedBlock, stateBlockNumber);
@@ -482,6 +485,7 @@ export class RelayerService {
         }
       } catch (error: any) {
         this.logger.error(error.toString());
+        this.prometheusService.checkIfUserPaidCorrectGasCostError.labels({method: "getGasCostPerTimestamp"}).inc()
         throw error;
       }
       timestamp -= CheckPointSizeMs;
@@ -507,6 +511,8 @@ export class RelayerService {
       currentGasPrice,
       numberOfWithdrawals,
     });
+
+    this.prometheusService.lowGasCostError.labels({method: "checkIfGasCostCoverTheTransaction"}).inc()
 
     this.networkFeesMetadata = {
       isHighFee: true,
@@ -577,6 +583,7 @@ export class RelayerService {
         await sleep(sleepDelay);
         return currentStateBlock;
       }
+      this.logger.log(`Nothing to process... sleep ${sleepDelay / 1000} sec`)
       await sleep(retryDelay);
     }
   };
