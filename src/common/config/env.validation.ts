@@ -20,6 +20,12 @@ export class EnvironmentVariables {
   RELAYER_PORT: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(toNumber({ defaultValue: 9090 }))
+  METRICS_PORT: number;
+
+  @IsOptional()
   @IsEnum(LogLevel)
   @Transform(({ value }) => value || LogLevel.info)
   LOG_LEVEL: LogLevel;
