@@ -52,6 +52,7 @@ services:
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     ports:
       - '${RELAYER_PORT}:${RELAYER_PORT}'
+      - '${METRICS_PORT}:${METRICS_PORT}'
     depends_on:
       - mongo
       - indexer
