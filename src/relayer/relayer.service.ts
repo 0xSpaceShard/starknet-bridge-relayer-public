@@ -54,6 +54,7 @@ export class RelayerService {
     this.relayerAddress = this.configService.get('RELAYER_L2_ADDRESS');
     this.firstBlock = Number(this.configService.get('FIRST_BLOCK'));
     this.networkConfig = getNetworkConfig(this.networkId);
+    this.networkFeesMetadata = { isHighFee: false };
   }
 
   async run() {
@@ -157,7 +158,9 @@ export class RelayerService {
         allMulticallRequestsForMessagesCanBeConsumedOnL1,
         NumberOfWithdrawalsToProcessPerTransaction,
       );
-      this.networkFeesMetadata = {};
+      this.networkFeesMetadata = {
+        isHighFee: false
+      };
     }
     // Store the last processed block on database.
     await this.updateProcessedBlock(currentToBlockNumber);
@@ -318,7 +321,7 @@ export class RelayerService {
     if (multicallRequest.length === 1) {
       const req = multicallRequest[0];
       const data = defaultAbiCoder.decode(['uint256', 'address'], '0x' + req.callData.slice(10));
-      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1], Number(req.gas));
+      const tx = await this.web3Service.callWithdraw(req.target, data[0], data[1], Number(req.gas) + 20000);
       this.logger.log('Call withdraw');
       await tx.wait();
       const { l1Balance, l2Balance } = await this.getRelayerBalances();
@@ -532,7 +535,7 @@ export class RelayerService {
   };
 
   checkNetworkHighFees = async () => {
-    if (!this.networkFeesMetadata?.isHighFee) return;
+    if (!this.networkFeesMetadata.isHighFee) return;
     await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
       totalWithdrawals: this.networkFeesMetadata?.numberOfWithdrawals,
       usersPaid: formatBalance(BigNumber.from(this.networkFeesMetadata?.usersPaid)),

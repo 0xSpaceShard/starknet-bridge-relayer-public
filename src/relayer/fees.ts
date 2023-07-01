@@ -1,5 +1,5 @@
 export interface NetworkFeesMetadata {
-  isHighFee?: boolean;
+  isHighFee: boolean;
   networkCost?: string;
   usersPaid?: string;
   numberOfWithdrawals?: number;
