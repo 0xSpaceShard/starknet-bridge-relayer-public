@@ -17,7 +17,7 @@ export class CronService {
     await this.relayerService.run();
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_4_HOURS)
   async relayerBalance() {
     await this.relayerService.checkRelayerBalance();
   }
