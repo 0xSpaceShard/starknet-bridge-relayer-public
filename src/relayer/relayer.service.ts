@@ -93,7 +93,7 @@ export class RelayerService {
     const allMulticallRequestsForMessagesCanBeConsumedOnL1 = [];
     let totalGasPaid: BigNumber = BigNumber.from('0');
     let totalGasToUse: BigNumber = BigNumber.from('0');
-    let allInvalidPaidGasCost = 0
+    let allInvalidPaidGasCost = 0;
 
     // Start processed withdrawals between 2 blocks.
     while (currentToBlockNumber !== toBlock) {
@@ -121,11 +121,11 @@ export class RelayerService {
           multicallRequests: allMulticallRequests,
           totalPaid,
           totalGas,
-          totalInvalidPaidGasCost
+          totalInvalidPaidGasCost,
         } = await this.getMulticallRequests(requestWithdrawalAtBlocks.withdrawals);
         totalGasPaid = totalGasPaid.add(totalPaid);
         totalGasToUse = totalGasToUse.add(totalGas);
-        allInvalidPaidGasCost += totalInvalidPaidGasCost
+        allInvalidPaidGasCost += totalInvalidPaidGasCost;
 
         // Check which message hashs exists on L1.
         const viewMulticallResponse: Array<MulticallResponse> = await this.getListOfL2ToL1MessagesResult(
@@ -148,7 +148,7 @@ export class RelayerService {
     const { status, networkCost } = await this.checkIfGasCostCoverTheTransaction(
       totalGasPaid,
       totalGasToUse,
-      totalWithdrawalsProcessed
+      totalWithdrawalsProcessed,
     );
 
     // Consume the messages.
@@ -159,7 +159,7 @@ export class RelayerService {
         NumberOfWithdrawalsToProcessPerTransaction,
       );
       this.networkFeesMetadata = {
-        isHighFee: false
+        isHighFee: false,
       };
     }
     // Store the last processed block on database.
@@ -171,7 +171,7 @@ export class RelayerService {
       stateBlockNumber,
       totalWithdrawalsProcessed,
       totalWithdrawals,
-      allInvalidPaidGasCost
+      allInvalidPaidGasCost,
     };
   }
 
@@ -240,7 +240,12 @@ export class RelayerService {
 
   async getMulticallRequests(
     withdrawals: Array<Withdrawal>,
-  ): Promise<{ multicallRequests: Array<MulticallRequest>; totalPaid: BigNumber; totalGas: BigNumber, totalInvalidPaidGasCost: number }> {
+  ): Promise<{
+    multicallRequests: Array<MulticallRequest>;
+    totalPaid: BigNumber;
+    totalGas: BigNumber;
+    totalInvalidPaidGasCost: number;
+  }> {
     let totalPaid: BigNumber = BigNumber.from('0');
     let totalGas: BigNumber = BigNumber.from('0');
     let totalInvalidPaidGasCost = 0;
@@ -254,8 +259,8 @@ export class RelayerService {
 
       const { status, amount } = await this.checkIfAmountPaidIsValid(withdrawal);
       if (!status) {
-        this.prometheusService.invalidGasCostError.labels({method: "checkIfAmountPaidIsValid"}).inc()
-        totalInvalidPaidGasCost++
+        this.prometheusService.invalidGasCostError.labels({ method: 'checkIfAmountPaidIsValid' }).inc();
+        totalInvalidPaidGasCost++;
       }
       if (bridgeMetadata.l1BridgeAddress && status) {
         totalPaid = totalPaid.add(amount);
@@ -431,7 +436,7 @@ export class RelayerService {
 
         let lastIndexedBlock = await this.indexerService.getLastIndexedBlock();
         this.prometheusService.indexerRequests.labels({ method: 'getLastIndexedBlock' }).inc();
-        
+
         const stateBlockNumber = (await this.web3Service.getStateBlockNumber()).toNumber();
         this.prometheusService.web3Requests.labels({ method: 'getStateBlockNumber' }).inc();
 
@@ -488,7 +493,7 @@ export class RelayerService {
         }
       } catch (error: any) {
         this.logger.error(error.toString());
-        this.prometheusService.checkIfUserPaidCorrectGasCostError.labels({method: "getGasCostPerTimestamp"}).inc()
+        this.prometheusService.checkIfUserPaidCorrectGasCostError.labels({ method: 'getGasCostPerTimestamp' }).inc();
         throw error;
       }
       timestamp -= CheckPointSizeMs;
@@ -504,18 +509,19 @@ export class RelayerService {
     if (numberOfWithdrawals === 0) return { status: false };
 
     const currentGasPrice = await this.web3Service.getCurrentGasPrice();
-    const networkCost = currentGasPrice.mul(totalGasToUse);
+    // TODO: improve the gas price calculations
+    const networkCost = currentGasPrice.mul(totalGasToUse.mul(2).div(3));
 
     if (networkCost.lte(totalPaid)) return { status: true, networkCost };
 
     this.logger.warn('The total gas cost paid can not cover the transaction cost, sleep', {
-      networkCost,
-      totalPaid,
-      currentGasPrice,
-      numberOfWithdrawals,
+      networkCost: networkCost.toString(),
+      totalPaid: totalPaid.toString(),
+      currentGasPrice: currentGasPrice.toString(),
+      numberOfWithdrawals: numberOfWithdrawals.toString(),
     });
 
-    this.prometheusService.lowGasCostError.labels({method: "checkIfGasCostCoverTheTransaction"}).inc()
+    this.prometheusService.lowGasCostError.labels({ method: 'checkIfGasCostCoverTheTransaction' }).inc();
 
     this.networkFeesMetadata = {
       isHighFee: true,
@@ -534,13 +540,16 @@ export class RelayerService {
     });
   };
 
-  checkNetworkHighFees = async () => {
-    if (!this.networkFeesMetadata.isHighFee) return;
+  checkNetworkHighFees = async () : Promise<boolean> => {
+    this.logger.log('Network fees', this.networkFeesMetadata);
+    if (!this.getNetworkFeesMetadata().isHighFee) return false;
+    const {networkCost, numberOfWithdrawals, usersPaid} = this.getNetworkFeesMetadata()
     await RelayerNotifications.emitHighNetworkFees(this.discordService, this.networkId, {
-      totalWithdrawals: this.networkFeesMetadata?.numberOfWithdrawals,
-      usersPaid: formatBalance(BigNumber.from(this.networkFeesMetadata?.usersPaid)),
-      required: formatBalance(BigNumber.from(this.networkFeesMetadata?.networkCost)),
+      totalWithdrawals: numberOfWithdrawals,
+      usersPaid: formatBalance(BigNumber.from(usersPaid)),
+      required: formatBalance(BigNumber.from(networkCost)),
     });
+    return true
   };
 
   getRelayerBalances = async (): Promise<RelayerBalances> => {
@@ -586,8 +595,12 @@ export class RelayerService {
         await sleep(sleepDelay);
         return currentStateBlock;
       }
-      this.logger.log(`Nothing to process... sleep ${sleepDelay / 1000} sec`)
+      this.logger.log(`Nothing to process... sleep ${sleepDelay / 1000} sec`);
       await sleep(retryDelay);
     }
   };
+
+  getNetworkFeesMetadata() {
+    return this.networkFeesMetadata
+  }
 }
