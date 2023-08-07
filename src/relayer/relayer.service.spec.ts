@@ -544,6 +544,7 @@ describe('RelayerService', () => {
         );
         expect(1).toEqual(0);
       } catch (error) {
+        expect(service.getNetworkFeesMetadata().isHighFee).toEqual(true);
         expect(error).toEqual(new Error('The total gas cost paid can not cover the transaction cost, sleep'));
       }
     }
@@ -559,7 +560,27 @@ describe('RelayerService', () => {
 
   it('Success checkNetworkHighFees', async () => {
     jest.spyOn(RelayerNotifications, 'emitHighNetworkFees').mockImplementation();
-    await service.checkNetworkHighFees();
+    expect(await service.checkNetworkHighFees()).toEqual(false);
+
+    const expectedData = {
+      isHighFee: true,
+      networkCost: '10',
+      numberOfWithdrawals: 10,
+      usersPaid: '8',
+    }
+
+    jest.spyOn(service, 'getNetworkFeesMetadata').mockReturnValue({
+      isHighFee: true,
+      networkCost: '10',
+      numberOfWithdrawals: 10,
+      usersPaid: '8',
+    });
+    await service.checkNetworkHighFees()
+    const {isHighFee, networkCost, numberOfWithdrawals, usersPaid} = service.getNetworkFeesMetadata()
+    expect(isHighFee).toEqual(expectedData.isHighFee);
+    expect(networkCost).toEqual(expectedData.networkCost);
+    expect(numberOfWithdrawals).toEqual(expectedData.numberOfWithdrawals);
+    expect(usersPaid).toEqual(expectedData.usersPaid);
   });
 
   it('Success formatBalance', async () => {
@@ -586,21 +607,24 @@ describe('RelayerService', () => {
   });
 
   it('Success canWakeupRelayer', async () => {
-    const stateBlockNumber = 120
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)))
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)))
-    const res = await service.canWakeupRelayer(100, 100, 100)
-    expect(res).toEqual(stateBlockNumber)
-    
-  })
+    const stateBlockNumber = 120;
+    jest
+      .spyOn(web3Service, 'getStateBlockNumber')
+      .mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)));
+    jest
+      .spyOn(web3Service, 'getStateBlockNumber')
+      .mockReturnValueOnce(Promise.resolve(BigNumber.from(stateBlockNumber)));
+    const res = await service.canWakeupRelayer(100, 100, 100);
+    expect(res).toEqual(stateBlockNumber);
+  });
 
   it('Success canWakeupRelayer multiple state', async () => {
-    const stateBlockNumber = 103
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(100)))
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(101)))
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValueOnce(Promise.resolve(BigNumber.from(102)))
-    jest.spyOn(web3Service, "getStateBlockNumber").mockReturnValue(Promise.resolve(BigNumber.from(stateBlockNumber)))
-    const res = await service.canWakeupRelayer(100, 100, 100)
-    expect(res).toEqual(stateBlockNumber)
-  })
+    const stateBlockNumber = 103;
+    jest.spyOn(web3Service, 'getStateBlockNumber').mockReturnValueOnce(Promise.resolve(BigNumber.from(100)));
+    jest.spyOn(web3Service, 'getStateBlockNumber').mockReturnValueOnce(Promise.resolve(BigNumber.from(101)));
+    jest.spyOn(web3Service, 'getStateBlockNumber').mockReturnValueOnce(Promise.resolve(BigNumber.from(102)));
+    jest.spyOn(web3Service, 'getStateBlockNumber').mockReturnValue(Promise.resolve(BigNumber.from(stateBlockNumber)));
+    const res = await service.canWakeupRelayer(100, 100, 100);
+    expect(res).toEqual(stateBlockNumber);
+  });
 });
