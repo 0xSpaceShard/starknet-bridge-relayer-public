@@ -23,7 +23,7 @@
     "release": "npx release-it"
   },
   "dependencies": {
-    "@commitlint/config-conventional": "^17.4.4",
+    "@commitlint/config-conventional": "^17.8.1",
     "@ethersproject/bignumber": "^5.7.0",
     "@fastify/static": "^6.9.0",
     "@golevelup/nestjs-graphql-request": "^0.1.14",
