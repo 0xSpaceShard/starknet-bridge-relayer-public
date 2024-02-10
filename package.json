@@ -55,7 +55,7 @@
     "graphql": "^16.6.0",
     "graphql-request": "^5.2.0",
     "lodash": "^4.17.21",
-    "mongodb": "^5.1.0",
+    "mongodb": "^5.9.2",
     "mongoose": "^7.0.2",
     "nest-winston": "^1.9.1",
     "prom-client": "^14.2.0",
